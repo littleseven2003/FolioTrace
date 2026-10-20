@@ -11,6 +11,8 @@
 
 ### Added
 
+- 本地 commit-msg hook 与 CI 提交/PR 标题检查，要求英文类型和中文描述。
+
 - 文脉 / FolioTrace 产品范围、架构、Agent 协议、目录树、阶段路线和测试标准。
 - DSH + deepseek-flash 开发/评审/续作提示词。
 - 可离线运行的交互原型：材料管理、版本图谱、外观设置与互动写作流程。

@@ -8,7 +8,9 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "check": "node scripts/check-starter.mjs",
-    "check:docs": "node scripts/check-starter.mjs"
+    "check": "node scripts/check-starter.mjs && node scripts/check-commit-message.mjs --self-test",
+    "check:docs": "node scripts/check-starter.mjs",
+    "check:commits": "node scripts/check-commit-message.mjs --ci",
+    "hooks:install": "git config --local core.hooksPath .githooks"
   }
 }

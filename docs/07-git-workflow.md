@@ -63,3 +63,9 @@ git push -u origin feat/m1-shell
 ## 远程尚未建立时
 
 scripts/connect-remote.sh <仓库URL> 只添加 origin，不创建、不上传。确认内容后首次推送 main。账号登录在用户终端进行，不把 token 写到仓库、文档或聊天。不要提交本地绝对路径、真实业务样本或环境文件。
+
+## 自动检查
+
+克隆后运行 `npm run hooks:install`，在当前仓库启用 `.githooks/commit-msg`；已有自定义 hooksPath 时先整合，不覆盖其他项目设置。该 hook 拒绝不合格式的标题。CI 对本次 push/PR 新增的提交以及 PR 标题执行相同校验，不追溯重写旧启动提交。禁止用 --no-verify 绕过。GitHub 合并时设置如 `docs：合并提交与版本管理规范` 的标题，保留每一个小提交。
+
+`npm run check` 同时验证检查器自身。若更新 PR 标题但检查未自动重跑，可重新运行该 PR 的工作流。
