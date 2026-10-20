@@ -1,4 +1,4 @@
-name: Starter checks
+name: Quality checks
 on:
   push:
     branches: [main]
@@ -6,8 +6,12 @@ on:
 permissions:
   contents: read
 jobs:
+  # 作业 ID 保持 starter-check，避免改动 main 分支保护中已配置的必需状态名。
   starter-check:
     runs-on: ubuntu-latest
+    env:
+      # CI 不启动 Electron 窗口，跳过二进制下载以缩短安装时间。
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,6 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+      - run: npm ci
       - run: npm run check
       - name: Check new commit titles and PR title
         env:

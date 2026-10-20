@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "check": "node scripts/check-starter.mjs && node scripts/check-commit-message.mjs --self-test",
+    "check": "npm run check:docs && npm run typecheck && npm run lint && npm run test && npm run build && node scripts/check-commit-message.mjs --self-test",
     "check:docs": "node scripts/check-starter.mjs",
     "check:commits": "node scripts/check-commit-message.mjs --ci",
     "hooks:install": "git config --local core.hooksPath .githooks"
