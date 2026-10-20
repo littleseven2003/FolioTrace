@@ -1,3 +1,4 @@
+import type { ChooseProjectOutcome, ProjectScan } from './files'
 import type { ProjectSnapshot } from './project'
 import type { Result } from './result'
 
@@ -7,7 +8,9 @@ import type { Result } from './result'
  */
 export const IPC_CHANNELS = {
   runtimeInfo: 'runtime:get-info',
-  projectSnapshot: 'project:get-snapshot'
+  projectSnapshot: 'project:get-snapshot',
+  projectChoose: 'project:choose',
+  filesScan: 'files:scan'
 } as const
 
 export interface RuntimeInfo {
@@ -20,4 +23,6 @@ export interface RuntimeInfo {
 export interface FolioApi {
   getRuntimeInfo(): Promise<Result<RuntimeInfo>>
   getProjectSnapshot(): Promise<Result<ProjectSnapshot>>
+  chooseProject(): Promise<Result<ChooseProjectOutcome>>
+  scanProject(handle: string): Promise<Result<ProjectScan>>
 }
