@@ -6,66 +6,76 @@
 
 产品与架构、交互原型、数据 schema 与合成 fixture、DSH 提示词、贡献与 Git 规范、启动包检查。原型品牌已更新为文脉 / FolioTrace。
 
-## M1 进行中：第一步（开发环境与最小桌面窗口）
+## M1 进行中：第二步（模拟数据工作台）
 
 已完成：
 
-- 建立 Electron + React + TypeScript + Vite 工程：main / preload / renderer / shared 目录、`electron.vite.config.ts`、Node 与 Web 分离的 tsconfig、按精确版本锁定依赖并提交 `package-lock.json`。
-- 最小窗口：1000×700，标题“文脉 / FolioTrace”，显示“开发环境已就绪”、品牌标识和运行时版本。
-- 安全边界：`contextIsolation=true`、`nodeIntegration=false`、`sandbox=true`、`webSecurity=true`；preload 仅通过 contextBridge 暴露 `window.folio.getRuntimeInfo()`；主进程校验 IPC 来源，拒绝新窗口、非受信导航、webview 附加与所有权限请求。
-- 开发启动脚本 `scripts/dev.mjs`：启动前移除从 Electron 宿主继承的 `ELECTRON_RUN_AS_NODE`，确保 `npm run dev` 真正打开窗口。
+- 领域层 `src/domain/project.ts`：材料、版本、项目快照类型，以及按生成时间排序、最新版本、当前采用等纯函数选择器；不依赖 React、Electron 或文件系统。
+- 独立模拟数据 `src/main/mocks/demo-project.ts` 与只读 `MockProjectRepository`；每次调用返回独立快照，调用方修改不会污染后续读取。
+- 类型化 preload 新增 `window.folio.getProjectSnapshot()`；主进程校验 IPC sender 后返回项目快照，renderer 仍无法访问 Node、fs 或 shell。
+- 工作台界面：左侧导航（产出材料 / 全部文件 / 项目总览 / 待处理）；产出材料页含三张材料卡、中间版本时间线、右侧版本详情。点击材料或版本，时间线与详情联动切换。
+- 徽标语义：分别显示“最新生成”“当前采用”“待确认”“历史版本”。PPT 最新第三版明确不是当前采用（第二版）；详情提示“最新生成版本不会自动成为当前采用版本”。本轮采用状态只读，不提供切换按钮。
+- 全部文件、项目总览、待处理显示明确的里程碑占位（M2 / M3 / M5）；加载、错误重试、空状态齐全；窄窗口改为上下布局。
+- 质量门：ESLint 10 + typescript-eslint 8 + React Hooks 规则；Vitest 5 + jsdom 30 + Testing Library 16；12 个单元/交互测试。`npm run check` 汇总启动包检查、typecheck、lint、test、build 与提交标题自测；GitHub Actions 改用 `npm ci`。
 
 ### 实际运行结果
 
 | 命令 | 结果 |
 | --- | --- |
-| `npm install` | 成功；Electron 44.9.0 二进制在 DSH 沙箱内经临时 HOME 下载，普通终端无需该变通 |
-| `npm run check` | 通过（69 个文件；启动包检查与提交标题自测） |
-| `npm run typecheck` | 通过（main/preload 与 renderer 两套 tsconfig） |
+| `npm run check` | 通过：98 个文件启动包检查、typecheck、lint、12 个测试、生产构建、提交标题自测 |
+| `npm run test` | 通过：4 个测试文件 / 12 个测试（领域 7 + 工作台交互 5） |
+| `npm run lint` | 通过（0 warning） |
+| `npm run typecheck` | 通过（main/preload、renderer、tests 三套 tsconfig） |
 | `npm run build` | 通过（`out/main`、`out/preload`、`out/renderer` 生成） |
-| `npm run dev` | 成功启动桌面窗口；经 CDP 读取页面确认标题、品牌、“开发环境已就绪”、运行时信息，且渲染进程无 `require` / `process` / `ipcRenderer` |
-| `npm start -- --skipBuild` | 生产构建预览窗口同样通过上述 CDP 校验 |
+| `npm run dev` | 1280×820 工作台窗口启动；CDP 确认材料切换、版本选择、占位页、只读采用提示，renderer 无 `require` / `process` / `ipcRenderer` |
+| `npm start -- --skipBuild` | 生产构建预览窗口通过同一套 CDP 交互验收 |
 
-本轮验证环境：macOS 26.6.2（arm64）、Node v26.0.0、npm 11.12.1、Electron 44.9.0（Node 24.22.0 / Chromium 152）、electron-vite 6.0.0、Vite 8.3.4、React 19.3.1、TypeScript 5.9.3。版本选择理由见 [ADR 0002](adr/0002-m1-toolchain.md)。
+本轮验证环境：macOS 26.6.2（arm64）、Node v26.0.0、npm 11.12.1、Electron 44.9.0（Node 24.22.0 / Chromium 152）、electron-vite 6.0.0、Vite 8.3.4、React 19.3.1、TypeScript 5.9.3、Vitest 5.0.5。工具链决策见 [ADR 0002](adr/0002-m1-toolchain.md)。
 
-### 启动命令
+### 手工验收步骤
 
-普通终端（不在 DSH 文件沙箱内）：
+普通终端（不在 DSH 文件沙箱内）执行：
 
 ```sh
 npm install
 npm run dev
 ```
 
-DSH 会话内 Chromium 嵌套沙箱无法初始化（`sandbox initialization failed: Operation not permitted`），验证时使用 electron-vite 的临时参数，未改变应用本身的 `sandbox: true` 配置：
+1. 窗口进入“产出材料”，默认选中“成果汇报 PPT”的第三版。
+2. 时间线中第三版显示“最新生成 / 待确认”，第二版显示“当前采用”；右侧提示“当前采用：第二版”。
+3. 点击“配套详细报告”：时间线与详情切换，第三版同时显示“最新生成 / 当前采用”。
+4. 回到 PPT 并点击“第一版”：详情显示“历史版本”，当前采用仍为第二版。
+5. 点击“全部文件 / 项目总览 / 待处理”：分别看到 M2 / M3 / M5 占位说明。
+6. 确认没有“设为当前采用”等写操作（本轮只读）。
+
+DSH 会话内 Chromium 嵌套沙箱无法初始化，验证时使用：
 
 ```sh
 npm run dev -- --noSandbox -- --disable-gpu
 ```
 
-这是 DSH 沙箱限制，不是应用默认配置；普通终端不应携带这些参数。
-
-### 手工确认步骤
-
-1. 在普通终端执行 `npm install && npm run dev`，等待约 5 秒。
-2. 出现 1000×700 窗口，标题栏为“文脉 / FolioTrace”。
-3. 内容卡片依次显示“文脉 / FolioTrace”“开发环境已就绪”和 `Electron 44.9.0 · Chromium …` 运行时行。
-4. 按 `Cmd+Q` 退出（或终端 `Ctrl+C` 结束开发服务器）。
+该参数仅用于 DSH 环境，普通终端不要携带。
 
 ## 下一步（M1 剩余）
 
-建立完整类型化 `window.folio` 契约与 MockRepository，按原型完成导航、材料卡、版本时间线的最小纵向切片；加入 lint、unit test，并扩展 `check` 与 CI（`npm ci`、typecheck、test、build）。
+- 完整类型化 `window.folio` 契约：`Result<T>` 包装、错误码与后续方法骨架；当前只有 `getRuntimeInfo` 与 `getProjectSnapshot` 两个只读方法。
+- 文件列表、项目总览、待处理仍是占位页，等待 M2 / M3 / M5 接入真实数据。
+- 采用切换、任务创建、变更导入、真实目录扫描不在本轮范围。
+- 生产 CSP、受控应用协议、打包签名与安装包尚未实现。
+- Playwright 桌面自动化与远端 CI 实跑待补；本轮提交尚未推送，远端 CI 结果未验证。
+- M1 收尾验收与 PR 合并。
 
 ## 已知限制
 
-- 尚未实现文件扫描、版本图谱、任务管理、Agent 接入、真实目录选择与 `project.json` 写入。
-- 尚无生产 CSP、受控应用协议、打包/签名/安装包；`src/domain`、`src/adapters` 尚未创建。
-- 启动包检查不等同于完整 JSON Schema 或应用测试；M1 仍需加入 Ajv 等正式 schema 校验。
+- 模拟数据只读，不读取或写入用户业务文件夹；快照 `revision=7` 只是模拟版本号。
 - DSH 会话内需 `--noSandbox` 才能启动 Electron，普通终端是否无参数启动仍需人工验收。
+- 工作台目前只覆盖单项目、产出材料纵向切片；文件/图谱/待处理内容与交互尚未实现。
+- 启动包检查不等同于完整 JSON Schema 或桌面应用 E2E；真实文件风险测试在 M2–M5 补齐。
+- 当前 package 0.0.0、schemaVersion 1，未升版本、未打标签。
 
 ## 每阶段更新
 
-记录阶段、分支、提交、运行命令与结果、未完成项、下轮入口。Git 实际接入信息见 REPOSITORY.md。
+本轮分支 `feat/m1-shell`，小步提交：`597ae01`（lint/测试工具链）、`67f25ad`（领域模型与 MockRepository）、`feab2f5`（工作台界面与交互测试）、`3a32dab`（check 与 CI），以及本次文档提交。Git 实际接入信息见 REPOSITORY.md。
 
 ## 提交与版本规则更新
 

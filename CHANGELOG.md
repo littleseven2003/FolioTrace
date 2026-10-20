@@ -6,11 +6,13 @@
 
 ### Changed
 
+- `npm run check` 现在汇总启动包检查、typecheck、lint、测试与构建；GitHub Actions 使用 `npm ci` 并运行同一检查。
 - 每个完成并验证的小改动必须独立提交，标题采用 `英文类型：中文描述`，PR 合并保留小提交。
 - 明确软件版本、Git 提交、协议版本与业务文档版本的独立编排，以及 alpha/beta/rc 到正式版的发布规则。
 
 ### Added
 
+- M1 第二步：纯 TS 领域模型与只读 MockRepository、类型化 `getProjectSnapshot` preload 接口、工作台左侧导航、产出材料三栏视图（材料卡 / 版本时间线 / 只读详情）与里程碑占位页；ESLint + Vitest + Testing Library 工具链与 12 个测试。
 - M1 第一步：Electron 44 + React 19 + TypeScript 5.9 + Vite 8 开发环境；最小 main/preload/renderer 窗口与 `window.folio.getRuntimeInfo()` 桥接；提交 `package-lock.json` 与工具链 ADR。
 - 本地 commit-msg hook 与 CI 提交/PR 标题检查，要求英文类型和中文描述。
 

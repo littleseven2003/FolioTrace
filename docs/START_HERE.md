@@ -2,7 +2,7 @@
 
 ## 当前交付范围
 
-此仓库准备了开发依据和原型。M0 交付启动包；M1 第一步已创建可启动的最小 Electron 窗口（见 [开发状态](STATUS.md)），文件管理功能尚未实现。由 DSH + deepseek-flash 分阶段构建真实程序。`deepseek-flash` 是用户选择的模型名称；不预设它的上下文窗口、工具权限、自动读规则行为或特定 API 参数。
+此仓库准备了开发依据和原型。M0 交付启动包；M1 第二步已创建基于模拟数据的工作台界面（见 [开发状态](STATUS.md)），真实文件管理功能尚未实现。由 DSH + deepseek-flash 分阶段构建真实程序。`deepseek-flash` 是用户选择的模型名称；不预设它的上下文窗口、工具权限、自动读规则行为或特定 API 参数。
 
 ## 推荐使用方式
 
@@ -34,7 +34,7 @@
 
 Node.js 至少 22.12；M1 已按 [ADR 0002](adr/0002-m1-toolchain.md) 固定工具链版本，并在 [开发状态](STATUS.md) 记录实际 node/npm 版本。不要用 --force 或 --legacy-peer-deps 掩盖冲突。Electron/构建工具版本以 M1 当天官方兼容性为准，记录到 lockfile 与 ADR。
 
-M0 的 `npm run check` 只检查启动包，不代表桌面程序已经构建通过。Git 仓库状态看 docs/REPOSITORY.md。
+M0 的 `npm run check` 只检查启动包；M1 第二步起 `npm run check` 已汇总启动包检查、typecheck、lint、测试与构建。Git 仓库状态看 docs/REPOSITORY.md。
 
 ## 每轮提交与版本
 

@@ -35,7 +35,9 @@ FolioTrace/
 └── .github/                  CI、Issue 与 PR 模板
 ```
 
-## M1 以后应形成的源码树（此处是目标结构，未创建空实现）
+## 源码树目标（M1 第二步已创建 main/preload/renderer/domain/shared 与 tests）
+
+当前已创建 `src/main`（index、ipc、mocks、services）、`src/preload`、`src/renderer`（app、components、features/materials、hooks、lib、styles）、`src/domain`、`src/shared` 与 `tests/unit`、`tests/integration`；下面目录树中的 adapters/fs、tasks、graph 等仍待后续阶段创建。
 
 ```text
 src/

@@ -27,6 +27,12 @@
 
 开目录 -> 分类 -> 版本登记 -> 任务生成 -> 在外部 Agent 生成记录 -> 待处理/导入 -> 查看图谱 -> 设为采用 -> 退出重启。验证每一步的实际磁盘文件，而不是仅截图。
 
+## M1 当前自动覆盖
+
+- 领域：版本按生成时间排序、最新生成与当前采用相互独立、未知版本处理、MockRepository 快照隔离。
+- 交互：三份材料卡、材料切换、版本选择、徽标语义、占位页面、快照错误与重试。
+- 尚未自动覆盖：Electron 窗口级 E2E（Playwright 待接入）、真实文件系统、导入事务与崩溃恢复。
+
 ## GitHub CI
 
-当前 ci.yml 运行 M0 check、提交格式检查器用例、新提交与 PR 标题校验。M1 必须接入 npm ci、typecheck、lint、unit、build，并提交 lockfile。M6 增加 macOS 构建；未验证平台不宣称支持。禁止为了绿色状态删掉失败测试或使用 continue-on-error。
+ci.yml 现在执行 `npm ci`，再运行 `npm run check`（启动包检查、typecheck、lint、测试、build）以及新提交与 PR 标题校验；CI 不启动 Electron 窗口，因此跳过 Electron 二进制下载。M6 增加 macOS 构建；未验证平台不宣称支持。禁止为了绿色状态删掉失败测试或使用 continue-on-error。
