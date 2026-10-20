@@ -22,8 +22,8 @@
 
 | 命令 | 结果 |
 | --- | --- |
-| `npm run check` | 通过：98 个文件启动包检查、typecheck、lint、12 个测试、生产构建、提交标题自测 |
-| `npm run test` | 通过：4 个测试文件 / 12 个测试（领域 7 + 工作台交互 5） |
+| `npm run check` | 通过：119 个文件启动包检查、typecheck、lint、28 个测试、生产构建、提交标题自测 |
+| `npm run test` | 通过：6 个测试文件 / 28 个测试（领域 7 + IPC 15 + 工作台交互 6） |
 | `npm run lint` | 通过（0 warning） |
 | `npm run typecheck` | 通过（main/preload、renderer、tests 三套 tsconfig） |
 | `npm run build` | 通过（`out/main`、`out/preload`、`out/renderer` 生成） |
@@ -56,26 +56,44 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 该参数仅用于 DSH 环境，普通终端不要携带。
 
+## M1 第三步（IPC 契约与来源校验，已完成）
+
+- `getRuntimeInfo`、`getProjectSnapshot` 返回共享 `Result<T>`，错误码为 `INTERNAL_ERROR`、`UNTRUSTED_SOURCE`。读取失败显示固定中文消息并可重试；内部异常与堆栈只写主进程日志，不进入界面。
+- IPC 仅接受当前主窗口的 main frame：同时校验 webContents id、frame process/routing id 与 frame URL，拒绝其他窗口、子框架和已关闭窗口。
+- 生产只信任主进程实际加载的 `out/renderer/index.html`，不再放行任意 `file:` 页面；开发只信任 `ELECTRON_RENDERER_URL` 配置的开发服务器 origin。
+- 导航层拒绝非可信主框架导航、服务端重定向、非主框架导航、新窗口与 webview 附加。
+- 新增 15 个 IPC 测试（`ipc-trust` 9、`ipc-respond` 6），覆盖成功、仓库异常脱敏、其他窗口/子框架/非入口 URL 拒绝。
+
+第三步验证结果：
+
+| 检查 | 结果 |
+| --- | --- |
+| `npm run test` | 6 文件 / 28 测试通过 |
+| `npm run check` | 通过：119 文件、typecheck、lint、28 测试、build、提交标题自测 |
+| dev 窗口 CDP | 两个 API 均返回 `{ok:true,...}`；外部导航与 `window.open` 被拦截；renderer 无 `require` / `process` / `ipcRenderer` |
+| 生产预览 CDP | file 入口下 API 正常，外部导航与弹窗被拦截 |
+
 ## 下一步（M1 剩余）
 
-- 完整类型化 `window.folio` 契约：`Result<T>` 包装、错误码与后续方法骨架；当前只有 `getRuntimeInfo` 与 `getProjectSnapshot` 两个只读方法。
 - 文件列表、项目总览、待处理仍是占位页，等待 M2 / M3 / M5 接入真实数据。
 - 采用切换、任务创建、变更导入、真实目录扫描不在本轮范围。
 - 生产 CSP、受控应用协议、打包签名与安装包尚未实现。
 - Playwright 桌面自动化与远端 CI 实跑待补；本轮提交尚未推送，远端 CI 结果未验证。
-- M1 收尾验收与 PR 合并。
+- 创建 PR 并完成 M1 收尾验收。
 
 ## 已知限制
 
 - 模拟数据只读，不读取或写入用户业务文件夹；快照 `revision=7` 只是模拟版本号。
 - DSH 会话内需 `--noSandbox` 才能启动 Electron，普通终端是否无参数启动仍需人工验收。
 - 工作台目前只覆盖单项目、产出材料纵向切片；文件/图谱/待处理内容与交互尚未实现。
+- 生产入口当前按 `file:` 路径精确比较；未来改用受控 `app://` 协议时需同步更新来源校验与测试。
+- IPC 来源校验依赖 Electron frame process/routing id；目前只在 macOS 验证，未做其他平台手工复验。
 - 启动包检查不等同于完整 JSON Schema 或桌面应用 E2E；真实文件风险测试在 M2–M5 补齐。
 - 当前 package 0.0.0、schemaVersion 1，未升版本、未打标签。
 
 ## 每阶段更新
 
-本轮分支 `feat/m1-shell`，小步提交：`597ae01`（lint/测试工具链）、`67f25ad`（领域模型与 MockRepository）、`feab2f5`（工作台界面与交互测试）、`3a32dab`（check 与 CI），以及本次文档提交。Git 实际接入信息见 REPOSITORY.md。
+本轮分支 `feat/m1-shell`，小步提交：`597ae01`（lint/测试工具链）、`67f25ad`（领域模型与 MockRepository）、`feab2f5`（工作台界面与交互测试）、`3a32dab`（check 与 CI）、`c736427`（共享 Result 契约）、`24677a3`（IPC 与导航来源校验），以及文档提交。Git 实际接入信息见 REPOSITORY.md。
 
 ## 提交与版本规则更新
 
@@ -89,4 +107,4 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 这是品牌资源交付，不代表已将图标接入工作台或安装包。DSH 后续可复用 SVG 更新侧栏标志，打包阶段再补 ICNS / ICO 与 Electron 配置。软件版本 0.0.0、协议版本 1 不变。
 
-本轮检查：`npm run check` 通过（115 个文件、类型检查、lint、12 个测试、生产构建、提交标题自测）；5 个 SVG 母版通过 XML / viewBox 检查；10 个 PNG 已核对尺寸，透明 Logo 的 alpha 保留，资源预览已目视核对。
+本轮检查：`npm run check` 通过（品牌资源提交时为 115 个文件、类型检查、lint、12 个测试、生产构建、提交标题自测）；5 个 SVG 母版通过 XML / viewBox 检查；10 个 PNG 已核对尺寸，透明 Logo 的 alpha 保留，资源预览已目视核对。
