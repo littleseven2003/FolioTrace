@@ -54,7 +54,7 @@ git push -u origin feat/m1-shell
 
 ## 发布
 
-当前不标可安装版本。M6 验收完成后更新 CHANGELOG，打 v0.1.0 标签并发布安装包，说明测试平台与签名状态。以后遵守 SemVer，协议破坏性变化提供迁移。大二进制不要反复进 Git，安装包放 Releases。
+版本规则以 [版本编排](09-versioning.md) 为准。当前 0.0.0 仅表示启动包；小提交不自动升号。准备可运行测试构建时使用 0.1.0-alpha.N，MVP 正式发布使用 0.1.0。发布标签与 package.json、锁文件及 CHANGELOG 必须一致。
 
 ## 本地恢复
 

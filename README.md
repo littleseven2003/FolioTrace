@@ -38,7 +38,7 @@ npm run check
 
 - [产品需求](docs/01-product.md) · [交互说明](docs/02-ux.md)
 - [架构与目录树](docs/03-architecture.md) · [协议](docs/04-agent-protocol.md)
-- [测试验收](docs/06-testing.md) · [Git 与发布](docs/07-git-workflow.md)
+- [测试验收](docs/06-testing.md) · [Git 与提交](docs/07-git-workflow.md) · [版本编排](docs/09-versioning.md)
 - [开发状态与交接](docs/STATUS.md) · [贡献指南](CONTRIBUTING.md)
 
 ## 开源与隐私
