@@ -1,9 +1,12 @@
+import type { ProjectSnapshot } from './project'
+
 /**
  * main、preload 与 renderer 共享的最小 IPC 契约。
  * renderer 只能通过 preload 暴露的 window.folio 调用这些方法。
  */
 export const IPC_CHANNELS = {
-  runtimeInfo: 'runtime:get-info'
+  runtimeInfo: 'runtime:get-info',
+  projectSnapshot: 'project:get-snapshot'
 } as const
 
 export interface RuntimeInfo {
@@ -15,4 +18,5 @@ export interface RuntimeInfo {
 
 export interface FolioApi {
   getRuntimeInfo(): Promise<RuntimeInfo>
+  getProjectSnapshot(): Promise<ProjectSnapshot>
 }

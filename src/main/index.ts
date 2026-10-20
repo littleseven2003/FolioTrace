@@ -1,30 +1,19 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import { join } from 'node:path'
-import type { RuntimeInfo } from '../shared/ipc'
-import { IPC_CHANNELS } from '../shared/ipc'
+import { APP_TITLE } from '../shared/app'
+import { registerIpcHandlers } from './ipc/handlers'
+import { isTrustedRendererUrl } from './ipc/trust'
+import { MockProjectRepository } from './services/mock-repository'
 
-const APP_TITLE = '文脉 / FolioTrace'
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
-
-/** 只允许开发服务器同源页面或打包后的本地文件。 */
-function isTrustedRendererUrl(rawUrl: string): boolean {
-  try {
-    const url = new URL(rawUrl)
-    if (RENDERER_DEV_URL) {
-      return url.origin === new URL(RENDERER_DEV_URL).origin
-    }
-    return url.protocol === 'file:'
-  } catch {
-    return false
-  }
-}
+const repository = new MockProjectRepository()
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 1000,
-    height: 700,
-    minWidth: 760,
-    minHeight: 520,
+    width: 1280,
+    height: 820,
+    minWidth: 1000,
+    minHeight: 700,
     show: false,
     title: APP_TITLE,
     backgroundColor: '#f4f7fa',
@@ -46,20 +35,6 @@ function createWindow(): void {
   }
 }
 
-function registerIpcHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.runtimeInfo, (event): RuntimeInfo => {
-    if (!event.senderFrame || !isTrustedRendererUrl(event.senderFrame.url)) {
-      throw new Error('IPC 调用来源不受信任')
-    }
-    return {
-      appName: APP_TITLE,
-      appVersion: app.getVersion(),
-      electronVersion: process.versions.electron,
-      chromeVersion: process.versions.chrome
-    }
-  })
-}
-
 function hardenWebContents(): void {
   app.on('web-contents-created', (_event, contents) => {
     contents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -77,7 +52,7 @@ void app.whenReady().then(() => {
     callback(false)
   })
 
-  registerIpcHandlers()
+  registerIpcHandlers(repository)
   createWindow()
 
   app.on('activate', () => {
