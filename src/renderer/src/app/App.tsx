@@ -26,8 +26,8 @@ export function App(): JSX.Element {
 
     void window.folio
       .getRuntimeInfo()
-      .then((info) => {
-        if (active) setRuntime(info)
+      .then((result) => {
+        if (active && result.ok) setRuntime(result.value)
       })
       .catch(() => {
         // 运行时信息只用于侧栏展示，读取失败不影响工作台。

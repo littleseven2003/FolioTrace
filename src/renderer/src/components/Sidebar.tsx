@@ -67,7 +67,7 @@ export function Sidebar({ snapshot, view, runtime, onViewChange }: SidebarProps)
         <p>工作 / {snapshot.projectName}</p>
         <p>模拟数据，不修改实际文件</p>
         <p className="runtime-line">
-          {runtime ? `Electron ${runtime.electronVersion}` : '正在读取运行时…'}
+          {runtime ? `Electron ${runtime.electronVersion}` : '运行时信息暂不可用'}
         </p>
       </div>
     </aside>

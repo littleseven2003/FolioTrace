@@ -3,16 +3,19 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDemoProjectSnapshot } from '../../src/main/mocks/demo-project'
 import { App } from '../../src/renderer/src/app/App'
+import { ERROR_MESSAGES, fail, ok } from '../../src/shared/result'
 
 function installFolioMock(overrides: Record<string, unknown> = {}): void {
   const folio = {
-    getRuntimeInfo: vi.fn().mockResolvedValue({
-      appName: '文脉 / FolioTrace',
-      appVersion: '0.0.0',
-      electronVersion: '44.9.0',
-      chromeVersion: '152.0.0'
-    }),
-    getProjectSnapshot: vi.fn().mockResolvedValue(createDemoProjectSnapshot()),
+    getRuntimeInfo: vi.fn().mockResolvedValue(
+      ok({
+        appName: '文脉 / FolioTrace',
+        appVersion: '0.0.0',
+        electronVersion: '44.9.0',
+        chromeVersion: '152.0.0'
+      })
+    ),
+    getProjectSnapshot: vi.fn().mockResolvedValue(ok(createDemoProjectSnapshot())),
     ...overrides
   }
 
@@ -122,11 +125,11 @@ describe('产出材料工作台', () => {
     ).toBeInTheDocument()
   })
 
-  it('快照读取失败时显示错误，重试成功后恢复工作台', async () => {
+  it('主进程返回失败结果时显示可读消息，重试成功后恢复工作台', async () => {
     const getProjectSnapshot = vi
       .fn()
-      .mockRejectedValueOnce(new Error('模拟读取失败'))
-      .mockResolvedValueOnce(createDemoProjectSnapshot())
+      .mockResolvedValueOnce(fail('INTERNAL_ERROR', ERROR_MESSAGES.snapshotUnavailable))
+      .mockResolvedValueOnce(ok(createDemoProjectSnapshot()))
     installFolioMock({ getProjectSnapshot })
 
     const user = userEvent.setup()
@@ -134,7 +137,27 @@ describe('产出材料工作台', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('项目快照加载失败')
-    expect(alert).toHaveTextContent('模拟读取失败')
+    expect(alert).toHaveTextContent(ERROR_MESSAGES.snapshotUnavailable)
+
+    await user.click(within(alert).getByRole('button', { name: '重新加载' }))
+    expect(await screen.findByRole('list', { name: '产出材料' })).toBeInTheDocument()
+  })
+
+  it('意外异常只显示统一消息，不向界面泄漏内部堆栈', async () => {
+    const getProjectSnapshot = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('SECRET stack /Users/littleseven/private/renderer.ts'))
+      .mockResolvedValueOnce(ok(createDemoProjectSnapshot()))
+    installFolioMock({ getProjectSnapshot })
+
+    const user = userEvent.setup()
+    render(<App />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(ERROR_MESSAGES.snapshotUnavailable)
+    expect(alert).not.toHaveTextContent('SECRET')
+    expect(alert).not.toHaveTextContent('/Users/')
+    expect(alert).not.toHaveTextContent('renderer.ts')
 
     await user.click(within(alert).getByRole('button', { name: '重新加载' }))
     expect(await screen.findByRole('list', { name: '产出材料' })).toBeInTheDocument()

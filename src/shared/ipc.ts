@@ -1,4 +1,5 @@
 import type { ProjectSnapshot } from './project'
+import type { Result } from './result'
 
 /**
  * main、preload 与 renderer 共享的最小 IPC 契约。
@@ -17,6 +18,6 @@ export interface RuntimeInfo {
 }
 
 export interface FolioApi {
-  getRuntimeInfo(): Promise<RuntimeInfo>
-  getProjectSnapshot(): Promise<ProjectSnapshot>
+  getRuntimeInfo(): Promise<Result<RuntimeInfo>>
+  getProjectSnapshot(): Promise<Result<ProjectSnapshot>>
 }

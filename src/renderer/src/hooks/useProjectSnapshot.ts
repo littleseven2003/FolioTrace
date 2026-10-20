@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ProjectSnapshot } from '../../../shared/project'
+import { ERROR_MESSAGES } from '../../../shared/result'
 
 type SnapshotState =
   | { status: 'loading'; snapshot: null; error: null }
@@ -18,13 +19,19 @@ export function useProjectSnapshot(): SnapshotState & { reload: () => void } {
 
     void window.folio
       .getProjectSnapshot()
-      .then((snapshot) => {
-        if (active) setState({ status: 'ready', snapshot, error: null })
-      })
-      .catch((cause: unknown) => {
+      .then((result) => {
         if (!active) return
-        const message = cause instanceof Error ? cause.message : '未知错误'
-        setState({ status: 'error', snapshot: null, error: message })
+        if (result.ok) {
+          setState({ status: 'ready', snapshot: result.value, error: null })
+        } else {
+          setState({ status: 'error', snapshot: null, error: result.error.message })
+        }
+      })
+      .catch(() => {
+        // 预加载桥接抛出的意外异常只显示统一消息，不展示内部细节。
+        if (active) {
+          setState({ status: 'error', snapshot: null, error: ERROR_MESSAGES.snapshotUnavailable })
+        }
       })
 
     return () => {
