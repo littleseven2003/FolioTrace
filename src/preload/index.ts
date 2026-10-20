@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ChooseProjectOutcome, ProjectScan } from '../shared/files'
+import type {
+  ChooseProjectOutcome,
+  InitializeProjectOutcome,
+  ProjectMetadataState,
+  ProjectScan
+} from '../shared/files'
 import type { FolioApi, RuntimeInfo } from '../shared/ipc'
 import { IPC_CHANNELS } from '../shared/ipc'
 import type { ProjectSnapshot } from '../shared/project'
@@ -28,6 +33,18 @@ const folio: FolioApi = {
     invoke<ProjectSnapshot>(IPC_CHANNELS.projectSnapshot, ERROR_MESSAGES.snapshotUnavailable),
   chooseProject: () =>
     invoke<ChooseProjectOutcome>(IPC_CHANNELS.projectChoose, ERROR_MESSAGES.projectOpenFailed),
+  getProjectMetadata: (handle) =>
+    invoke<ProjectMetadataState>(
+      IPC_CHANNELS.projectGetMetadata,
+      ERROR_MESSAGES.metadataInvalid,
+      handle
+    ),
+  initializeProject: (handle) =>
+    invoke<InitializeProjectOutcome>(
+      IPC_CHANNELS.projectInitialize,
+      ERROR_MESSAGES.metadataWriteFailed,
+      handle
+    ),
   scanProject: (handle) =>
     invoke<ProjectScan>(IPC_CHANNELS.filesScan, ERROR_MESSAGES.scanFailed, handle)
 }

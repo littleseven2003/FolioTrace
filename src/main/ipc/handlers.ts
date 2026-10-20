@@ -7,9 +7,15 @@ import {
   type OpenDialogOptions
 } from 'electron'
 import { APP_TITLE } from '../../shared/app'
-import type { ChooseProjectOutcome, ProjectScan } from '../../shared/files'
+import type {
+  ChooseProjectOutcome,
+  InitializeProjectOutcome,
+  ProjectMetadataState,
+  ProjectScan
+} from '../../shared/files'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import { ERROR_MESSAGES, fail, ok, type Result } from '../../shared/result'
+import type { ProjectMetadataStore } from '../services/project-metadata-store'
 import type { ProjectRegistry } from '../services/project-registry'
 import { scanAuthorizedProject } from '../services/project-service'
 import type { ProjectRepository } from '../services/project-repository'
@@ -19,6 +25,7 @@ import { toIpcCaller, validateIpcCaller, type TrustedRenderer } from './trust'
 interface IpcHandlerOptions {
   repository: ProjectRepository
   projectRegistry: ProjectRegistry
+  metadataStore: ProjectMetadataStore
   getTrustedRenderer: () => TrustedRenderer | null
 }
 
@@ -27,6 +34,24 @@ function validateCaller(
   getTrustedRenderer: () => TrustedRenderer | null
 ): Result<void> {
   return validateIpcCaller(toIpcCaller(event), getTrustedRenderer())
+}
+
+function validateHandle(handle: unknown): Result<string> {
+  if (typeof handle !== 'string' || handle.length === 0 || handle.length > 128) {
+    return fail('PROJECT_NOT_FOUND', ERROR_MESSAGES.projectNotFound)
+  }
+  return ok(handle)
+}
+
+function resolveProjectRoot(
+  handle: string,
+  projectRegistry: ProjectRegistry
+): Result<string> {
+  const resolved = projectRegistry.resolve(handle)
+  if (!resolved.ok) {
+    return fail(resolved.error.code, resolved.error.message)
+  }
+  return ok(resolved.value.rootPath)
 }
 
 async function chooseProject(
@@ -65,6 +90,7 @@ async function chooseProject(
 export function registerIpcHandlers({
   repository,
   projectRegistry,
+  metadataStore,
   getTrustedRenderer
 }: IpcHandlerOptions): void {
   ipcMain.handle(IPC_CHANNELS.runtimeInfo, (event) =>
@@ -89,16 +115,45 @@ export function registerIpcHandlers({
   })
 
   ipcMain.handle(
+    IPC_CHANNELS.projectGetMetadata,
+    async (event, handle: unknown): Promise<Result<ProjectMetadataState>> => {
+      const callerCheck = validateCaller(event, getTrustedRenderer)
+      if (!callerCheck.ok) {
+        return fail(callerCheck.error.code, callerCheck.error.message)
+      }
+      const handleCheck = validateHandle(handle)
+      if (!handleCheck.ok) return handleCheck
+      const rootCheck = resolveProjectRoot(handleCheck.value, projectRegistry)
+      if (!rootCheck.ok) return rootCheck
+      return metadataStore.getState(rootCheck.value)
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.projectInitialize,
+    async (event, handle: unknown): Promise<Result<InitializeProjectOutcome>> => {
+      const callerCheck = validateCaller(event, getTrustedRenderer)
+      if (!callerCheck.ok) {
+        return fail(callerCheck.error.code, callerCheck.error.message)
+      }
+      const handleCheck = validateHandle(handle)
+      if (!handleCheck.ok) return handleCheck
+      const rootCheck = resolveProjectRoot(handleCheck.value, projectRegistry)
+      if (!rootCheck.ok) return rootCheck
+      return metadataStore.initializeProject(rootCheck.value)
+    }
+  )
+
+  ipcMain.handle(
     IPC_CHANNELS.filesScan,
     async (event, handle: unknown): Promise<Result<ProjectScan>> => {
       const callerCheck = validateCaller(event, getTrustedRenderer)
       if (!callerCheck.ok) {
         return fail(callerCheck.error.code, callerCheck.error.message)
       }
-      if (typeof handle !== 'string' || handle.length === 0 || handle.length > 128) {
-        return fail('PROJECT_NOT_FOUND', ERROR_MESSAGES.projectNotFound)
-      }
-      return scanAuthorizedProject(handle, projectRegistry)
+      const handleCheck = validateHandle(handle)
+      if (!handleCheck.ok) return handleCheck
+      return scanAuthorizedProject(handleCheck.value, projectRegistry)
     }
   )
 }
