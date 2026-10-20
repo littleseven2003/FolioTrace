@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "taskId": "task-demo-001",
+  "projectId": "project-demo",
+  "baseRevision": 1,
+  "documentId": "doc-slides",
+  "baseVersionId": "v-slides-1",
+  "createdAt": "2026-10-20T09:00:00+08:00",
+  "referencePins": [
+    {
+      "fileId": "file-ref",
+      "relativePath": "reference/编写要求.md",
+      "sha256": "bc7c08d73ab7c4cf4ad3c1d1428763e27d4a89e98b2afcc453298513a335bf43"
+    }
+  ],
+  "requirements": "按编写要求更新预算与执行安排；不修改报告。",
+  "syncCompanions": false
+}

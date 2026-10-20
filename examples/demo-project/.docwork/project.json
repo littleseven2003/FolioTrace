@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "projectId": "project-demo",
+  "name": "文脉合成验收项目",
+  "revision": 1,
+  "files": [
+    {
+      "id": "file-ref",
+      "relativePath": "reference/编写要求.md",
+      "role": "reference",
+      "sha256": "bc7c08d73ab7c4cf4ad3c1d1428763e27d4a89e98b2afcc453298513a335bf43"
+    },
+    {
+      "id": "file-slides-1",
+      "relativePath": "versions/202610190900-汇报提纲.md",
+      "role": "output",
+      "sha256": "9dc3d9abe4aa046e95d479b0000be5b2de4cd3d3393ab5f1e8ae30038631024d"
+    },
+    {
+      "id": "file-report-1",
+      "relativePath": "versions/202610191000-详细报告.md",
+      "role": "output",
+      "sha256": "a699aa0e4d065055cf1ee88746cb2b9d58988d202d6883254c26bf1fe1c37512"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc-slides",
+      "name": "汇报提纲",
+      "currentVersionId": "v-slides-1"
+    },
+    {
+      "id": "doc-report",
+      "name": "详细报告",
+      "currentVersionId": "v-report-1"
+    }
+  ],
+  "versions": [
+    {
+      "id": "v-slides-1",
+      "documentId": "doc-slides",
+      "fileId": "file-slides-1",
+      "parentVersionId": null,
+      "createdAt": "2026-10-19T09:00:00+08:00",
+      "summary": [
+        "建立汇报提纲初稿"
+      ],
+      "sha256": "9dc3d9abe4aa046e95d479b0000be5b2de4cd3d3393ab5f1e8ae30038631024d",
+      "referencePins": [
+        {
+          "fileId": "file-ref",
+          "relativePath": "reference/编写要求.md",
+          "sha256": "bc7c08d73ab7c4cf4ad3c1d1428763e27d4a89e98b2afcc453298513a335bf43"
+        }
+      ],
+      "producer": "synthetic-fixture"
+    },
+    {
+      "id": "v-report-1",
+      "documentId": "doc-report",
+      "fileId": "file-report-1",
+      "parentVersionId": null,
+      "createdAt": "2026-10-19T10:00:00+08:00",
+      "summary": [
+        "展开第一版汇报内容"
+      ],
+      "sha256": "a699aa0e4d065055cf1ee88746cb2b9d58988d202d6883254c26bf1fe1c37512",
+      "referencePins": [
+        {
+          "fileId": "file-ref",
+          "relativePath": "reference/编写要求.md",
+          "sha256": "bc7c08d73ab7c4cf4ad3c1d1428763e27d4a89e98b2afcc453298513a335bf43"
+        }
+      ],
+      "producer": "synthetic-fixture"
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-1",
+      "kind": "companion",
+      "fromVersionId": "v-slides-1",
+      "toVersionId": "v-report-1",
+      "label": "配套报告"
+    }
+  ],
+  "tasks": [
+    {
+      "taskId": "task-demo-001",
+      "relativePath": ".docwork/tasks/task-demo-001.json",
+      "status": "awaiting-output"
+    }
+  ],
+  "importedEvents": []
+}

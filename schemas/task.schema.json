@@ -1,0 +1,71 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "baseRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "documentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "baseVersionId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "referencePins": {
+      "type": "array",
+      "items": {
+        "$ref": "project.schema.json#/$defs/pin"
+      }
+    },
+    "requirements": {
+      "type": "string",
+      "minLength": 1
+    },
+    "syncCompanions": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "projectId",
+    "baseRevision",
+    "documentId",
+    "baseVersionId",
+    "createdAt",
+    "referencePins",
+    "requirements",
+    "syncCompanions"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://foliotrace.example/schemas/task.schema.json"
+}

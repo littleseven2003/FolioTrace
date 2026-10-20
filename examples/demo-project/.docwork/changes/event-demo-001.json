@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "eventId": "event-demo-001",
+  "projectId": "project-demo",
+  "taskId": "task-demo-001",
+  "createdAt": "2026-10-20T10:01:00+08:00",
+  "producer": "synthetic-fixture",
+  "outputs": [
+    {
+      "file": {
+        "id": "file-slides-2",
+        "relativePath": "versions/202610201000-汇报提纲.md",
+        "role": "output",
+        "sha256": "3f2e662342fe5bcd57a697a0dbfa05d79ef453169ba5bd0fd90d18c95acb3336"
+      },
+      "version": {
+        "id": "v-slides-2",
+        "documentId": "doc-slides",
+        "fileId": "file-slides-2",
+        "parentVersionId": "v-slides-1",
+        "createdAt": "2026-10-20T10:00:00+08:00",
+        "summary": [
+          "按要求更新预算与执行安排"
+        ],
+        "sha256": "3f2e662342fe5bcd57a697a0dbfa05d79ef453169ba5bd0fd90d18c95acb3336",
+        "referencePins": [
+          {
+            "fileId": "file-ref",
+            "relativePath": "reference/编写要求.md",
+            "sha256": "bc7c08d73ab7c4cf4ad3c1d1428763e27d4a89e98b2afcc453298513a335bf43"
+          }
+        ],
+        "producer": "synthetic-fixture"
+      }
+    }
+  ],
+  "relations": []
+}

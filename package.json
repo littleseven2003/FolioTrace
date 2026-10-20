@@ -1,0 +1,14 @@
+{
+  "name": "foliotrace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "文脉 / FolioTrace development starter",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "check": "node scripts/check-starter.mjs",
+    "check:docs": "node scripts/check-starter.mjs"
+  }
+}
