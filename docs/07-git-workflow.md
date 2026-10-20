@@ -6,7 +6,7 @@ Git 跟踪软件代码、文档、原型、协议与合成 fixture。业务文�
 
 ## 个人 / 小团队工作流
 
-main 保持可演示；使用短期 feat/…、fix/…、docs/… 分支，不加长期 develop。一个阶段一个 PR，必要时拆成数个完整小提交。
+main 保持可演示；使用短期 feat/…、fix/…、docs/… 分支，不加长期 develop。一个阶段可以一个 PR，但每个完成且验证的小改动必须立即独立 commit。PR 合并使用 merge commit 保留这些小提交；不要 squash 或 rebase 改写已分享的提交。
 
 ```sh
 git switch main
@@ -16,12 +16,37 @@ git switch -c feat/m1-shell
 npm run check
 git add <明确的相关文件>
 git diff --cached
-git commit -m "feat(shell): add desktop shell and typed preload"
+git commit -m "feat：添加桌面壳与类型化桥接"
 git push -u origin feat/m1-shell
 # 在 GitHub 创建 PR，合并后删除已合并分支
 ```
 
-提交类型：feat / fix / docs / test / refactor / chore。代码和必要的文档一起提交。不要强推 main；重写个人特性分支前确认无人基于它开发，使用 --force-with-lease 而非 --force。
+## 小步提交规则（从本次规范起生效）
+
+标题严格为 `类型：描述`：类型是小写英文，冒号是中文全角 `：`，描述以中文表意，可包含 API、文件名等必要英文。不使用 scope、不添加 emoji。正文可补充原因、验证结果和关联 Issue。
+
+| 类型 | 用途 | 示例 |
+| --- | --- | --- |
+| feat | 新功能 | feat：增加项目总览入口 |
+| fix | 缺陷修复 | fix：修复重复记录被二次导入 |
+| docs | 文档 | docs：补充版本发布规则 |
+| style | 格式与视觉样式 | style：调整版本卡片间距 |
+| refactor | 保持行为的重构 | refactor：拆分版本关系计算逻辑 |
+| perf | 性能 | perf：限制文件哈希并发数量 |
+| test | 测试 | test：补充路径越界用例 |
+| build | 构建与依赖 | build：配置桌面应用打包 |
+| ci | 自动检查 | ci：增加提交标题检查 |
+| chore | 维护 | chore：配置本地提交检查 |
+| revert | 回退 | revert：回退异常的文件监听修改 |
+| release | 版本发布准备 | release：准备发布 0.1.0 正式版 |
+
+**粒度**：改一个按钮、补一条规则、修一个 bug，只要构成完整可验收改动，就检查并 commit。不能等 M1 全部结束才提交。相关实现/测试/必要文档是同一个原子改动，不按每个文件拆提交。不要求每次保存都提交、不制造空提交、不把已知失败代码当作完成提交。
+
+**频率**：每个小改动本地 commit；完成一轮工作或切换设备前 push 特性分支。commit 不等于发布，也不要求每次 commit 升版本。中途不能完成时，用 stash 或明确说明未完成状态，不为了凑提交伪造检查通过。
+
+本规范不重写已有 bf8a1c9、e83371f 两个启动提交。后续人工、Agent、PR 标题与合并提交均遵循该格式；GitHub 合并时手动指定中文描述标题。历史回退使用 revert，默认自动生成的英文标题也要改为本规范。
+
+代码和必要的文档一起提交。不要强推 main；重写个人特性分支前确认无人基于它开发，使用 --force-with-lease 而非 --force。
 
 ## 建议主分支保护
 
