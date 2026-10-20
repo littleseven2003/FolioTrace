@@ -7,10 +7,29 @@ interface FilesPageProps {
   local: LocalProjectState
   onChooseProject: () => void
   onRescan: () => void
+  onInitializeProject: () => void
+  onReloadMetadata: () => void
 }
 
-export function FilesPage({ local, onChooseProject, onRescan }: FilesPageProps): JSX.Element {
-  const { project, scan, choosing, scanning, error, notice } = local
+export function FilesPage({
+  local,
+  onChooseProject,
+  onRescan,
+  onInitializeProject,
+  onReloadMetadata
+}: FilesPageProps): JSX.Element {
+  const {
+    project,
+    scan,
+    metadata,
+    choosing,
+    scanning,
+    metadataLoading,
+    initializing,
+    error,
+    metadataError,
+    notice
+  } = local
   const files = scan?.files ?? []
 
   return (
@@ -76,6 +95,49 @@ export function FilesPage({ local, onChooseProject, onRescan }: FilesPageProps):
               {scanning ? '正在扫描…' : '重新扫描'}
             </button>
           </div>
+
+          <section className="panel metadata-panel" aria-label="文脉项目元数据">
+            <div className="metadata-panel-head">
+              <h2>文脉项目元数据</h2>
+              {metadata?.status === 'loaded' && (
+                <span className="badge badge-current">已初始化</span>
+              )}
+            </div>
+
+            {metadataLoading ? (
+              <p className="metadata-hint" role="status" aria-live="polite">
+                正在读取 .docwork/project.json…
+              </p>
+            ) : metadataError ? (
+              <div className="alert-inline" role="alert">
+                <p>{metadataError}</p>
+                <button type="button" className="btn" onClick={onReloadMetadata}>
+                  重新读取元数据
+                </button>
+              </div>
+            ) : metadata?.status === 'loaded' ? (
+              <p className="metadata-hint">
+                revision {metadata.summary.revision} · 文件记录 {metadata.summary.fileCount} ·
+                材料 {metadata.summary.documentCount}。打开文件夹默认只读；后续写操作需显式触发。
+              </p>
+            ) : (
+              <div className="metadata-empty">
+                <p>
+                  该文件夹尚未初始化文脉项目。初始化会创建{' '}
+                  <span className="mono">.docwork/project.json</span>（revision 1），不会移动或修改原文件；
+                  扫描结果不会自动成为参考资料。
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={onInitializeProject}
+                  disabled={initializing}
+                >
+                  {initializing ? '正在初始化…' : '初始化文脉项目'}
+                </button>
+              </div>
+            )}
+          </section>
 
           {error && (
             <div className="alert-inline" role="alert">

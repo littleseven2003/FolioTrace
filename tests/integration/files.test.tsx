@@ -18,6 +18,17 @@ const PROJECT: ProjectSummary = {
   readOnly: true
 }
 
+const SUMMARY = {
+  projectId: 'project-test',
+  name: '合成项目',
+  revision: 1,
+  schemaVersion: 1 as const,
+  fileCount: 0,
+  documentCount: 0,
+  versionCount: 0,
+  relationCount: 0
+}
+
 const FILE_A: ProjectFileEntry = {
   relativePath: '报告/初稿.docx',
   type: 'DOCX',
@@ -64,6 +75,8 @@ function installFolioMock(overrides: Record<string, unknown> = {}): void {
     getProjectSnapshot: vi.fn().mockResolvedValue(ok(createDemoProjectSnapshot())),
     chooseProject: vi.fn().mockResolvedValue(ok({ canceled: true })),
     scanProject: vi.fn().mockResolvedValue(ok(makeScan([]))),
+    getProjectMetadata: vi.fn().mockResolvedValue(ok({ status: 'none' })),
+    initializeProject: vi.fn().mockResolvedValue(ok({ status: 'created', summary: SUMMARY })),
     ...overrides
   }
 
@@ -183,5 +196,87 @@ describe('全部文件与目录选择', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(ERROR_MESSAGES.permissionDenied)
     expect(alert).not.toHaveTextContent('Error')
+  })
+
+  it('打开文件夹默认只读，显示未初始化且不自动创建元数据', async () => {
+    const chooseProject = vi
+      .fn()
+      .mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const scanProject = vi.fn().mockResolvedValue(ok(makeScan([FILE_A])))
+    const getProjectMetadata = vi.fn().mockResolvedValue(ok({ status: 'none' }))
+    const initializeProject = vi.fn()
+    installFolioMock({ chooseProject, scanProject, getProjectMetadata, initializeProject })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+
+    expect(
+      await screen.findByRole('button', { name: '初始化文脉项目' })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/尚未初始化文脉项目/)).toBeInTheDocument()
+    expect(getProjectMetadata).toHaveBeenCalledWith('project-test')
+    expect(initializeProject).not.toHaveBeenCalled()
+  })
+
+  it('用户点击初始化后显示 revision 1 与成功提示', async () => {
+    const chooseProject = vi
+      .fn()
+      .mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi.fn().mockResolvedValue(ok({ status: 'none' }))
+    const initializeProject = vi
+      .fn()
+      .mockResolvedValue(ok({ status: 'created', summary: SUMMARY }))
+    installFolioMock({ chooseProject, getProjectMetadata, initializeProject })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await user.click(await screen.findByRole('button', { name: '初始化文脉项目' }))
+
+    expect(initializeProject).toHaveBeenCalledWith('project-test')
+    expect(await screen.findByText(/文脉项目已初始化（revision 1）/)).toBeInTheDocument()
+    expect(screen.getByText(/revision 1 · 文件记录 0 · 材料 0/)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '初始化文脉项目' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('重新打开已有项目时读取元数据并保留 revision', async () => {
+    const chooseProject = vi
+      .fn()
+      .mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi
+      .fn()
+      .mockResolvedValue(ok({ status: 'loaded', summary: { ...SUMMARY, revision: 4, fileCount: 2 } }))
+    installFolioMock({ chooseProject, getProjectMetadata })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+
+    expect(await screen.findByText(/revision 4 · 文件记录 2/)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '初始化文脉项目' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('元数据损坏时显示提示且不提供覆盖初始化', async () => {
+    const chooseProject = vi
+      .fn()
+      .mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi
+      .fn()
+      .mockResolvedValue(fail('PROJECT_METADATA_INVALID', ERROR_MESSAGES.metadataInvalid))
+    installFolioMock({ chooseProject, getProjectMetadata })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(ERROR_MESSAGES.metadataInvalid)
+    expect(
+      screen.queryByRole('button', { name: '初始化文脉项目' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(alert).getByRole('button', { name: '重新读取元数据' })
+    ).toBeInTheDocument()
   })
 })

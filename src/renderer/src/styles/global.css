@@ -774,6 +774,51 @@ a:focus-visible {
   color: var(--green);
 }
 
+.metadata-panel {
+  margin-bottom: 14px;
+  padding: 14px 18px;
+}
+
+.metadata-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.metadata-panel-head h2 {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.metadata-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.8;
+}
+
+.metadata-empty {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.metadata-empty p {
+  flex: 1;
+  min-width: 240px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.8;
+}
+
+.metadata-empty .btn {
+  flex-shrink: 0;
+}
+
 .notice-inline {
   margin: 0 0 14px;
   padding: 10px 13px;

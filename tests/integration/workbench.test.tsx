@@ -25,6 +25,22 @@ function installFolioMock(overrides: Record<string, unknown> = {}): void {
         warnings: []
       })
     ),
+    getProjectMetadata: vi.fn().mockResolvedValue(ok({ status: 'none' })),
+    initializeProject: vi.fn().mockResolvedValue(
+      ok({
+        status: 'created',
+        summary: {
+          projectId: 'project-test',
+          name: '测试项目',
+          revision: 1,
+          schemaVersion: 1 as const,
+          fileCount: 0,
+          documentCount: 0,
+          versionCount: 0,
+          relationCount: 0
+        }
+      })
+    ),
     ...overrides
   }
 
