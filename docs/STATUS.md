@@ -22,8 +22,8 @@
 
 | 命令 | 结果 |
 | --- | --- |
-| `npm run check` | 通过：119 个文件启动包检查、typecheck、lint、28 个测试、生产构建、提交标题自测 |
-| `npm run test` | 通过：6 个测试文件 / 28 个测试（领域 7 + IPC 15 + 工作台交互 6） |
+| `npm run check` | 通过：120 个文件启动包检查、typecheck、lint、29 个测试、生产构建、提交标题自测 |
+| `npm run test` | 通过：6 个测试文件 / 29 个测试（领域 7 + IPC 15 + 工作台交互 7） |
 | `npm run lint` | 通过（0 warning） |
 | `npm run typecheck` | 通过（main/preload、renderer、tests 三套 tsconfig） |
 | `npm run build` | 通过（`out/main`、`out/preload`、`out/renderer` 生成） |
@@ -68,18 +68,29 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 | 检查 | 结果 |
 | --- | --- |
-| `npm run test` | 6 文件 / 28 测试通过 |
-| `npm run check` | 通过：119 文件、typecheck、lint、28 测试、build、提交标题自测 |
+| `npm run test` | 6 文件 / 29 测试通过 |
+| `npm run check` | 通过：120 文件、typecheck、lint、29 测试、build、提交标题自测 |
 | dev 窗口 CDP | 两个 API 均返回 `{ok:true,...}`；外部导航与 `window.open` 被拦截；renderer 无 `require` / `process` / `ipcRenderer` |
 | 生产预览 CDP | file 入口下 API 正常，外部导航与弹窗被拦截 |
 
+## M1 第四步（品牌接入与双环境验收，已完成）
+
+- 工作台顶栏通过构建工具导入 `assets/brand/logo.svg`，替换“文”字占位；按 30×31 显示，旁边已有“文脉 / FolioTrace”名称，因此使用空 `alt` 与 `aria-hidden`，并补充集成测试。
+- 自动检查：`npm run check` 通过（120 文件、typecheck、lint、29 测试、build、提交标题自测）。
+- 窗口人工验收（dev 与生产预览各执行一次，CDP 辅助操作并截图，不是 CI 自动测试）：
+  - Logo 实际加载：natural 146×150、显示约 30.08×31，比例正确，`alt=""`、`aria-hidden="true"`；
+  - 材料切换与版本选择正常，历史版本、当前采用、最新生成徽标正确；
+  - 通过临时替换主进程 handler 注入一次真实 IPC 失败：界面显示“项目快照加载失败 / 暂时无法读取项目快照，请稍后重试。”，无内部堆栈；恢复 handler 后点击“重新加载”恢复工作台；
+  - 最新生成的第三版仍未自动成为当前采用（第二版）。
+- 说明：错误注入仅用于验收，未写入应用代码；应用本身没有模拟失败开关。
+
 ## 下一步（M1 剩余）
 
+- 推送 `feat/m1-shell` 并创建 M1 PR；等待 GitHub `starter-check` 通过，不合并，交由用户决定。
 - 文件列表、项目总览、待处理仍是占位页，等待 M2 / M3 / M5 接入真实数据。
-- 采用切换、任务创建、变更导入、真实目录扫描不在本轮范围。
+- 采用切换、任务创建、变更导入、真实目录扫描不在 M1 范围。
 - 生产 CSP、受控应用协议、打包签名与安装包尚未实现。
-- Playwright 桌面自动化与远端 CI 实跑待补；本轮提交尚未推送，远端 CI 结果未验证。
-- 创建 PR 并完成 M1 收尾验收。
+- Playwright 桌面自动化与 CI 中的窗口级验收待补。
 
 ## 已知限制
 
@@ -93,7 +104,7 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 ## 每阶段更新
 
-本轮分支 `feat/m1-shell`，小步提交：`597ae01`（lint/测试工具链）、`67f25ad`（领域模型与 MockRepository）、`feab2f5`（工作台界面与交互测试）、`3a32dab`（check 与 CI）、`c736427`（共享 Result 契约）、`24677a3`（IPC 与导航来源校验），以及文档提交。Git 实际接入信息见 REPOSITORY.md。
+本轮分支 `feat/m1-shell`，小步提交：`597ae01`（lint/测试工具链）、`67f25ad`（领域模型与 MockRepository）、`feab2f5`（工作台界面与交互测试）、`3a32dab`（check 与 CI）、`c736427`（共享 Result 契约）、`24677a3`（IPC 与导航来源校验）、`8484eb1`（顶部品牌标志），以及文档提交。Git 实际接入信息见 REPOSITORY.md。
 
 ## 提交与版本规则更新
 
@@ -105,6 +116,6 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 用户选择 A「文稿留痕」方向。品牌母版与导出位于 [assets/brand](../assets/brand/README.md)，包含彩色 / 单色 / 反白 SVG、横向组合、七档应用图标 PNG 和原始概念参考。README 已展示新标志。
 
-这是品牌资源交付，不代表已将图标接入工作台或安装包。DSH 后续可复用 SVG 更新侧栏标志，打包阶段再补 ICNS / ICO 与 Electron 配置。软件版本 0.0.0、协议版本 1 不变。
+这是品牌资源交付。工作台顶部已接入 `logo.svg`；HTML 原型、Electron 窗口/安装包图标尚未接入，打包阶段再补 ICNS / ICO 与 Electron 配置。软件版本 0.0.0、协议版本 1 不变。
 
 本轮检查：`npm run check` 通过（品牌资源提交时为 115 个文件、类型检查、lint、12 个测试、生产构建、提交标题自测）；5 个 SVG 母版通过 XML / viewBox 检查；10 个 PNG 已核对尺寸，透明 Logo 的 alpha 保留，资源预览已目视核对。

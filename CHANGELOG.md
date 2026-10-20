@@ -13,6 +13,7 @@
 
 ### Added
 
+- 工作台顶部接入 A「文稿留痕」Logo：构建时导入 `assets/brand/logo.svg`，保持比例，空 `alt` + `aria-hidden` 避免与相邻名称重复朗读；新增品牌可访问性测试（总计 29 个测试）。
 - M1 第三步：共享 `Result<T>` 与 `INTERNAL_ERROR` / `UNTRUSTED_SOURCE` 错误码；IPC 仅信任当前主窗口主框架，生产只信任实际入口文件，开发只信任配置的开发服务器来源；拒绝其他窗口、子框架、外部导航、重定向与弹窗；新增 15 个 IPC 测试（总计 28）。
 - 确定 A「文稿留痕」品牌方向：增加彩色、单色、反白 SVG 标志、横向名称组合、七档 PNG 应用图标及使用说明；README 展示品牌标志。
 - M1 第二步：纯 TS 领域模型与只读 MockRepository、类型化 `getProjectSnapshot` preload 接口、工作台左侧导航、产出材料三栏视图（材料卡 / 版本时间线 / 只读详情）与里程碑占位页；ESLint + Vitest + Testing Library 工具链与 12 个测试。
