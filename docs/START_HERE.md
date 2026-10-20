@@ -35,3 +35,9 @@
 Node.js 至少 22.12；M1 时选仍受支持且满足依赖要求的稳定 LTS，固定工具链版本。记录 node/npm 版本。不要用 --force 或 --legacy-peer-deps 掩盖冲突。Electron/构建工具的具体版本以 M1 当天官方兼容性为准，记录到 lockfile 与 ADR。
 
 M0 的 `npm run check` 只检查启动包，不代表桌面程序已经构建通过。Git 仓库状态看 docs/REPOSITORY.md。
+
+## 每轮提交与版本
+
+每个完成且验证的小改动立即 commit，格式为 `英文类型：中文描述`。见 [Git 规范](07-git-workflow.md) 和 [版本编排](09-versioning.md)。当前 0.0.0 不变，阶段编号与软件版本号分别管理。
+
+克隆仓库后运行 `npm run hooks:install` 启用本地提交标题校验。当前准备目录已启用；该本地配置不会随 Git clone 自动复制。

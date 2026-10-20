@@ -29,4 +29,4 @@
 
 ## GitHub CI
 
-当前 ci.yml 只跑 M0 check。M1 必须接入 npm ci、typecheck、lint、unit、build，并提交 lockfile。M6 增加 macOS 构建；未验证平台不宣称支持。禁止为了绿色状态删掉失败测试或使用 continue-on-error。
+当前 ci.yml 运行 M0 check、提交格式检查器用例、新提交与 PR 标题校验。M1 必须接入 npm ci、typecheck、lint、unit、build，并提交 lockfile。M6 增加 macOS 构建；未验证平台不宣称支持。禁止为了绿色状态删掉失败测试或使用 continue-on-error。
