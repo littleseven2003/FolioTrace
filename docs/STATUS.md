@@ -82,3 +82,11 @@ npm run dev -- --noSandbox -- --disable-gpu
 已要求每个完成并验证的小改动立即独立 commit，格式为英文类型＋中文全角冒号＋中文描述；新增 docs/09-versioning.md。当前 package 0.0.0、schemaVersion 1 保持不变，尚未发布任何桌面版本。
 
 提交格式现有本地 hook 与 CI 检查；克隆后按启动指南启用 hook。版本规范没有触发应用发布。
+
+## 品牌资源（2026-10-20）
+
+用户选择 A「文稿留痕」方向。品牌母版与导出位于 [assets/brand](../assets/brand/README.md)，包含彩色 / 单色 / 反白 SVG、横向组合、七档应用图标 PNG 和原始概念参考。README 已展示新标志。
+
+这是品牌资源交付，不代表已将图标接入工作台或安装包。DSH 后续可复用 SVG 更新侧栏标志，打包阶段再补 ICNS / ICO 与 Electron 配置。软件版本 0.0.0、协议版本 1 不变。
+
+本轮检查：`npm run check` 通过（115 个文件、类型检查、lint、12 个测试、生产构建、提交标题自测）；5 个 SVG 母版通过 XML / viewBox 检查；10 个 PNG 已核对尺寸，透明 Logo 的 alpha 保留，资源预览已目视核对。
