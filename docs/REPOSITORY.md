@@ -7,6 +7,7 @@
 - 默认分支：main；本地 main 跟踪 origin/main。
 - 首次提交：bf8a1c9，开发启动包。
 - 首次 GitHub CI：通过，https://github.com/littleseven2003/FolioTrace/actions/runs/39357915569 。
+- M1 PR：#2 `feat/m1-shell` → `main`，https://github.com/littleseven2003/FolioTrace/pull/2 ；远端 `starter-check` 通过，尚未合并。
 - 本地启动包检查：npm run check 通过。
 - 许可证：MIT；Lucide 许可另行保留。
 
@@ -18,4 +19,4 @@
 
 Git 作者身份仅在此仓库配置为 GitHub 账号及 noreply 地址，未修改全局设置。远程仓库不包含真实业务材料、模型凭据或用户本地路径。
 
-CI 已覆盖启动包检查、typecheck、lint、测试、构建与提交标题校验；作业 ID 保持 `starter-check` 以兼容现有分支保护。本轮 `feat/m1-shell` 提交尚未推送，远端 CI 结果待推送后验证。
+CI 已覆盖启动包检查、typecheck、lint、测试、构建与提交标题校验；作业 ID 保持 `starter-check` 以兼容现有分支保护。`feat/m1-shell` 已推送并创建 PR #2，远端检查通过；按本轮要求未合并。

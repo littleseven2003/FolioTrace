@@ -86,7 +86,7 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 ## 下一步（M1 剩余）
 
-- 推送 `feat/m1-shell` 并创建 M1 PR；等待 GitHub `starter-check` 通过，不合并，交由用户决定。
+- M1 PR #2 已创建并通过远端 `starter-check`（https://github.com/littleseven2003/FolioTrace/pull/2）；按本轮要求不合并，等待用户决定。
 - 文件列表、项目总览、待处理仍是占位页，等待 M2 / M3 / M5 接入真实数据。
 - 采用切换、任务创建、变更导入、真实目录扫描不在 M1 范围。
 - 生产 CSP、受控应用协议、打包签名与安装包尚未实现。
