@@ -766,6 +766,211 @@ a:focus-visible {
   line-height: 1.8;
 }
 
+/* 真实目录与文件清单 */
+
+.local-badge {
+  border-color: #d6eae0;
+  background: #eaf5ef;
+  color: var(--green);
+}
+
+.notice-inline {
+  margin: 0 0 14px;
+  padding: 10px 13px;
+  border: 1px solid #d6eae0;
+  border-radius: 7px;
+  background: #edf6f1;
+  color: var(--green);
+  font-size: 11.5px;
+}
+
+.alert-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  border: 1px solid #f0d9d9;
+  border-radius: 8px;
+  background: #fdf5f5;
+  color: #8b4a4a;
+  font-size: 12px;
+}
+
+.alert-inline p {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+}
+
+.choose-panel,
+.empty-panel {
+  display: grid;
+  justify-items: center;
+  padding: 52px 24px;
+  text-align: center;
+}
+
+.choose-panel h2,
+.empty-panel h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.choose-panel p,
+.empty-panel p {
+  max-width: 520px;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.choose-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: var(--light);
+  color: var(--blue);
+}
+
+.choose-icon .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.choose-hint {
+  margin-top: 16px !important;
+  margin-bottom: 0 !important;
+  color: #8b97a5 !important;
+  font-size: 10.5px !important;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.files-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.files-summary strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.files-toolbar .btn {
+  margin-left: auto;
+}
+
+.scan-warnings {
+  margin-bottom: 14px;
+  padding: 14px 18px;
+  border-color: #f1e5c9;
+  background: #fffdf8;
+}
+
+.scan-warnings h2 {
+  margin: 0 0 8px;
+  color: #8a703f;
+  font-size: 12.5px;
+}
+
+.scan-warnings ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #7b6537;
+  font-size: 11.5px;
+  line-height: 1.9;
+}
+
+.file-list-panel {
+  overflow: hidden;
+}
+
+.file-table-wrap {
+  overflow: auto;
+}
+
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.file-table th {
+  padding: 11px 16px;
+  border-bottom: 1px solid #edf0f4;
+  background: #fafbfd;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.file-table td {
+  padding: 11px 16px;
+  border-bottom: 1px solid #f0f3f6;
+  vertical-align: middle;
+}
+
+.file-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.file-path {
+  display: block;
+  color: var(--ink);
+  font-size: 11.5px;
+  word-break: break-all;
+}
+
+.file-type {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #68788c;
+  font: 600 9.5px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.file-number {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.local-mode-hint {
+  max-width: 420px;
+  margin: 0 !important;
+  color: var(--muted) !important;
+  font-size: 11px !important;
+}
+
+.placeholder-file-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  color: var(--blue);
+  font-size: 11px;
+}
+
+.inline-icon {
+  width: 14px;
+  height: 14px;
+}
+
 @media (max-width: 1120px) {
   .workspace-grid {
     grid-template-columns: minmax(0, 1fr) 290px;

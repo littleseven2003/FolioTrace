@@ -3,11 +3,14 @@ import { APP_TITLE } from '../../../shared/app'
 import type { RuntimeInfo } from '../../../shared/ipc'
 import type { Material, MaterialVersion } from '../../../shared/project'
 import { getLatestVersion } from '../../../shared/project'
-import { EmptyState, ErrorState, LoadingState } from '../components/Feedback'
 import { BrandMark } from '../components/BrandMark'
+import { EmptyState, ErrorState, LoadingState } from '../components/Feedback'
+import { LocalModePage } from '../components/LocalModePage'
 import { PlaceholderPage } from '../components/PlaceholderPage'
 import { Sidebar } from '../components/Sidebar'
+import { FilesPage } from '../features/files/FilesPage'
 import { MaterialsPage } from '../features/materials/MaterialsPage'
+import { useLocalProject } from '../hooks/useLocalProject'
 import { useProjectSnapshot } from '../hooks/useProjectSnapshot'
 import type { WorkbenchView } from './views'
 
@@ -18,6 +21,7 @@ interface Selection {
 
 export function App(): JSX.Element {
   const { status, snapshot, error, reload } = useProjectSnapshot()
+  const local = useLocalProject()
   const [view, setView] = useState<WorkbenchView>('materials')
   const [selection, setSelection] = useState<Selection | null>(null)
   const [runtime, setRuntime] = useState<RuntimeInfo | null>(null)
@@ -39,9 +43,11 @@ export function App(): JSX.Element {
     }
   }, [])
 
-  const activeMaterial = snapshot
-    ? (snapshot.materials.find((material) => material.id === selection?.materialId) ??
-      snapshot.materials[0] ??
+  const demoSnapshot = status === 'ready' ? snapshot : null
+  const isLocal = local.project !== null
+  const activeMaterial = demoSnapshot
+    ? (demoSnapshot.materials.find((material) => material.id === selection?.materialId) ??
+      demoSnapshot.materials[0] ??
       null)
     : null
   const activeVersion = activeMaterial
@@ -62,6 +68,8 @@ export function App(): JSX.Element {
     setSelection({ materialId: activeMaterial.id, versionId: version.id })
   }
 
+  const projectName = isLocal && local.project ? local.project.name : (demoSnapshot?.projectName ?? '加载中…')
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -71,29 +79,72 @@ export function App(): JSX.Element {
         </div>
         <p className="breadcrumb">
           工作区<span aria-hidden="true">/</span>
-          <strong>{snapshot?.projectName ?? '加载中…'}</strong>
+          <strong>{projectName}</strong>
         </p>
-        <span className="demo-badge">模拟数据 · 只读</span>
+        <span className={`demo-badge ${isLocal ? 'local-badge' : ''}`}>
+          {isLocal ? '本地目录 · 只读' : '模拟数据 · 只读'}
+        </span>
       </header>
 
-      {status === 'ready' && snapshot ? (
+      {isLocal || demoSnapshot ? (
         <div className="app-body">
-          <Sidebar snapshot={snapshot} view={view} runtime={runtime} onViewChange={setView} />
+          {isLocal && local.project ? (
+            <Sidebar
+              projectName={local.project.name}
+              description="本地目录 · 只读扫描"
+              counts={{
+                materials: '—',
+                files: local.scan?.files.length ?? '…',
+                pending: '—'
+              }}
+              local
+              view={view}
+              runtime={runtime}
+              onViewChange={setView}
+            />
+          ) : demoSnapshot ? (
+            <Sidebar
+              projectName={demoSnapshot.projectName}
+              description={demoSnapshot.description}
+              counts={{
+                materials: demoSnapshot.materials.length,
+                files: demoSnapshot.fileCount,
+                pending: demoSnapshot.pendingCount
+              }}
+              local={false}
+              view={view}
+              runtime={runtime}
+              onViewChange={setView}
+            />
+          ) : null}
+
           <main className="workbench" aria-label="项目工作台">
-            {view === 'materials' ? (
-              activeMaterial && activeVersion ? (
-                <MaterialsPage
-                  snapshot={snapshot}
-                  activeMaterial={activeMaterial}
-                  activeVersion={activeVersion}
-                  onSelectMaterial={handleSelectMaterial}
-                  onSelectVersion={handleSelectVersion}
-                />
+            {view === 'files' ? (
+              <FilesPage
+                local={local}
+                onChooseProject={() => void local.chooseProject()}
+                onRescan={() => void local.rescan()}
+              />
+            ) : isLocal && local.project ? (
+              <LocalModePage view={view} projectName={local.project.name} />
+            ) : demoSnapshot ? (
+              view === 'materials' ? (
+                activeMaterial && activeVersion ? (
+                  <MaterialsPage
+                    snapshot={demoSnapshot}
+                    activeMaterial={activeMaterial}
+                    activeVersion={activeVersion}
+                    onSelectMaterial={handleSelectMaterial}
+                    onSelectVersion={handleSelectVersion}
+                  />
+                ) : (
+                  <EmptyState onReload={reload} />
+                )
               ) : (
-                <EmptyState onReload={reload} />
+                <PlaceholderPage view={view} snapshot={demoSnapshot} />
               )
             ) : (
-              <PlaceholderPage view={view} snapshot={snapshot} />
+              <EmptyState onReload={reload} />
             )}
           </main>
         </div>

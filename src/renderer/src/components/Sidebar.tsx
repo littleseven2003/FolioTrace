@@ -1,6 +1,5 @@
 import type { JSX } from 'react'
 import type { RuntimeInfo } from '../../../shared/ipc'
-import type { ProjectSnapshot } from '../../../shared/project'
 import type { WorkbenchView } from '../app/views'
 import { FilesIcon, InboxIcon, LayersIcon, WorkflowIcon, type IconProps } from './Icons'
 
@@ -11,32 +10,44 @@ interface NavItem {
   icon: (props: IconProps) => JSX.Element
 }
 
+export interface SidebarCounts {
+  materials: string | number
+  files: string | number
+  pending: string | number
+}
+
 interface SidebarProps {
-  snapshot: ProjectSnapshot
+  projectName: string
+  description: string
+  counts: SidebarCounts
+  local: boolean
   view: WorkbenchView
   runtime: RuntimeInfo | null
   onViewChange: (view: WorkbenchView) => void
 }
 
-export function Sidebar({ snapshot, view, runtime, onViewChange }: SidebarProps): JSX.Element {
+export function Sidebar({
+  projectName,
+  description,
+  counts,
+  local,
+  view,
+  runtime,
+  onViewChange
+}: SidebarProps): JSX.Element {
   const items: NavItem[] = [
-    {
-      id: 'materials',
-      label: '产出材料',
-      count: snapshot.materials.length,
-      icon: LayersIcon
-    },
-    { id: 'files', label: '全部文件', count: snapshot.fileCount, icon: FilesIcon },
+    { id: 'materials', label: '产出材料', count: counts.materials, icon: LayersIcon },
+    { id: 'files', label: '全部文件', count: counts.files, icon: FilesIcon },
     { id: 'overview', label: '项目总览', count: '图谱', icon: WorkflowIcon },
-    { id: 'pending', label: '待处理', count: snapshot.pendingCount, icon: InboxIcon }
+    { id: 'pending', label: '待处理', count: counts.pending, icon: InboxIcon }
   ]
 
   return (
     <aside className="sidebar" aria-label="项目导航">
       <div className="project-summary">
         <small>PROJECT WORKSPACE</small>
-        <h2>{snapshot.projectName}</h2>
-        <p>{snapshot.description}</p>
+        <h2>{projectName}</h2>
+        <p>{description}</p>
       </div>
 
       <nav className="nav" aria-label="主导航">
@@ -62,10 +73,10 @@ export function Sidebar({ snapshot, view, runtime, onViewChange }: SidebarProps)
       <div className="sidebar-footer">
         <p>
           <span className="status-dot" aria-hidden="true" />
-          本地文件夹项目
+          {local ? '真实目录 · 只读' : '模拟演示项目'}
         </p>
-        <p>工作 / {snapshot.projectName}</p>
-        <p>模拟数据，不修改实际文件</p>
+        <p>{local ? `工作 / ${projectName}` : '合成数据，不写磁盘'}</p>
+        <p>{local ? '扫描不写入业务文件' : '模拟数据，不修改实际文件'}</p>
         <p className="runtime-line">
           {runtime ? `Electron ${runtime.electronVersion}` : '运行时信息暂不可用'}
         </p>

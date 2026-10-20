@@ -16,6 +16,15 @@ function installFolioMock(overrides: Record<string, unknown> = {}): void {
       })
     ),
     getProjectSnapshot: vi.fn().mockResolvedValue(ok(createDemoProjectSnapshot())),
+    chooseProject: vi.fn().mockResolvedValue(ok({ canceled: true })),
+    scanProject: vi.fn().mockResolvedValue(
+      ok({
+        handle: 'project-test',
+        scannedAt: '2026-10-20T07:00:00.000Z',
+        files: [],
+        warnings: []
+      })
+    ),
     ...overrides
   }
 
@@ -119,8 +128,8 @@ describe('产出材料工作台', () => {
 
     await user.click(screen.getByRole('button', { name: /全部文件/ }))
     expect(screen.getByRole('heading', { level: 1, name: '全部文件' })).toBeInTheDocument()
-    expect(screen.getByText('该页面尚未接入')).toBeInTheDocument()
-    expect(screen.getByText(/计划 M2/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '打开文件夹' })).toBeInTheDocument()
+    expect(screen.getByText('接入一个本地文件夹')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /项目总览/ }))
     expect(screen.getByRole('heading', { level: 1, name: '项目总览' })).toBeInTheDocument()
