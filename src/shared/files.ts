@@ -53,3 +53,24 @@ export interface ProjectScan {
   files: ProjectFileEntry[]
   warnings: ScanWarning[]
 }
+
+/** 项目元数据摘要：仅用于界面展示，不包含完整文件/版本数据。 */
+export interface ProjectMetadataSummary {
+  projectId: string
+  name: string
+  revision: number
+  schemaVersion: 1
+  fileCount: number
+  documentCount: number
+  versionCount: number
+  relationCount: number
+}
+
+export type ProjectMetadataState =
+  | { status: 'none' }
+  | { status: 'loaded'; summary: ProjectMetadataSummary }
+
+export interface InitializeProjectOutcome {
+  status: 'created' | 'existing'
+  summary: ProjectMetadataSummary
+}

@@ -10,6 +10,10 @@ export type FolioErrorCode =
   | 'INVALID_PROJECT_PATH'
   | 'PERMISSION_DENIED'
   | 'PATH_OUTSIDE_ROOT'
+  | 'PROJECT_METADATA_INVALID'
+  | 'UNSUPPORTED_SCHEMA'
+  | 'PROJECT_LOCKED'
+  | 'REVISION_CONFLICT'
 
 export interface FolioError {
   code: FolioErrorCode
@@ -28,7 +32,13 @@ export const ERROR_MESSAGES = {
   invalidProjectPath: '所选路径不是可读取的文件夹。',
   permissionDenied: '没有读取该文件夹的权限。',
   projectOpenFailed: '无法打开文件夹选择器，请稍后重试。',
-  scanFailed: '扫描文件失败，请稍后重试。'
+  scanFailed: '扫描文件失败，请稍后重试。',
+  metadataInvalid: '项目元数据损坏或不符合格式，未做任何修改。',
+  metadataUnsupported: '项目元数据版本高于当前应用支持范围，未做任何修改。',
+  managementSymlink: '管理目录或元数据文件是符号链接，已拒绝访问。',
+  projectLocked: '项目正被另一个文脉实例写入，请稍后重试。',
+  revisionConflict: '项目数据已被其他操作更新，请重新读取后再试。',
+  metadataWriteFailed: '写入项目元数据失败，请检查权限后重试。'
 } as const
 
 export function ok<T>(value: T): Result<T> {
