@@ -15,7 +15,9 @@ import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   scanProjectDirectory,
-  type ScanFileSystem
+  type ScanDirent,
+  type ScanFileSystem,
+  type ScanStats
 } from '../../src/main/services/file-scanner'
 
 const tempRoots: string[] = []
@@ -58,6 +60,45 @@ async function snapshotTree(root: string): Promise<Map<string, string>> {
 
   await walk(root, '')
   return result
+}
+
+function directoryStats(identity: { dev: number; ino: number }): ScanStats {
+  return {
+    size: 0,
+    mtimeMs: 0,
+    dev: identity.dev,
+    ino: identity.ino,
+    isFile: () => false,
+    isDirectory: () => true,
+    isSymbolicLink: () => false
+  }
+}
+
+function fileStats(identity: { dev: number; ino: number }): ScanStats {
+  return {
+    size: 5,
+    mtimeMs: Date.parse('2026-10-20T06:00:00.000Z'),
+    dev: identity.dev,
+    ino: identity.ino,
+    isFile: () => true,
+    isDirectory: () => false,
+    isSymbolicLink: () => false
+  }
+}
+
+function dirent(name: string, kind: 'file' | 'directory'): ScanDirent {
+  return {
+    name,
+    isDirectory: () => kind === 'directory',
+    isFile: () => kind === 'file',
+    isSymbolicLink: () => false
+  }
+}
+
+function missingError(): NodeJS.ErrnoException {
+  const error = new Error('gone') as NodeJS.ErrnoException
+  error.code = 'ENOENT'
+  return error
 }
 
 describe('scanProjectDirectory', () => {
@@ -132,21 +173,10 @@ describe('scanProjectDirectory', () => {
     const root = '/virtual-project'
     const fakeFs: ScanFileSystem = {
       realpath: async (path) => path,
-      readdir: async (path) =>
-        path === root
-          ? [
-              {
-                name: 'gone.txt',
-                isDirectory: () => false,
-                isFile: () => true,
-                isSymbolicLink: () => false
-              }
-            ]
-          : [],
-      lstat: async () => {
-        const error = new Error('gone') as NodeJS.ErrnoException
-        error.code = 'ENOENT'
-        throw error
+      readdir: async (path) => (path === root ? [dirent('gone.txt', 'file')] : []),
+      lstat: async (path) => {
+        if (path === root) return directoryStats({ dev: 1, ino: 1 })
+        throw missingError()
       }
     }
 
@@ -163,5 +193,121 @@ describe('scanProjectDirectory', () => {
         message: '扫描期间文件已不存在，已跳过。'
       }
     ])
+  })
+
+  it('子目录在 readdir 后被替换时终止扫描，不返回任何文件', async () => {
+    const root = '/root'
+    const state = { replaced: false }
+    const fakeFs: ScanFileSystem = {
+      realpath: async (path) => {
+        if (path === root) return root
+        if (path === '/root/sub') return state.replaced ? '/outside/evil' : '/root/sub'
+        return path
+      },
+      readdir: async (path) => {
+        if (path === root) return [dirent('sub', 'directory')]
+        if (path === '/root/sub') {
+          state.replaced = true
+          return [dirent('outside.txt', 'file')]
+        }
+        return []
+      },
+      lstat: async (path) => {
+        if (path === root) return directoryStats({ dev: 1, ino: 1 })
+        if (path === '/root/sub') {
+          return directoryStats(state.replaced ? { dev: 9, ino: 9 } : { dev: 1, ino: 2 })
+        }
+        return fileStats({ dev: 9, ino: 10 })
+      }
+    }
+
+    const result = await scanProjectDirectory('handle-4', root, { fs: fakeFs })
+
+    expect(result.files).toEqual([])
+    expect(result.warnings).toEqual([
+      {
+        code: 'SCAN_ABORTED',
+        relativePath: 'sub',
+        message: '扫描期间目录发生变化，已终止本次扫描，未采用任何文件结果。'
+      }
+    ])
+  })
+
+  it('祖先目录被替换、子目录解析到根外时终止扫描', async () => {
+    const root = '/root'
+    const fakeFs: ScanFileSystem = {
+      realpath: async (path) => {
+        if (path === root) return root
+        if (path === '/root/a') return '/root/a'
+        if (path === '/root/a/b') return '/outside/b'
+        return path
+      },
+      readdir: async (path) => {
+        if (path === root) return [dirent('a', 'directory')]
+        if (path === '/root/a') return [dirent('b', 'directory')]
+        return []
+      },
+      lstat: async (path) => {
+        if (path === root) return directoryStats({ dev: 1, ino: 1 })
+        if (path === '/root/a') return directoryStats({ dev: 1, ino: 2 })
+        return directoryStats({ dev: 9, ino: 3 })
+      }
+    }
+
+    const result = await scanProjectDirectory('handle-5', root, { fs: fakeFs })
+
+    expect(result.files).toEqual([])
+    expect(result.warnings[0]).toMatchObject({
+      code: 'SCAN_ABORTED',
+      relativePath: 'a/b'
+    })
+  })
+
+  it('根目录在扫描期间被替换时终止扫描', async () => {
+    const root = '/root'
+    let rootLstatCalls = 0
+    const fakeFs: ScanFileSystem = {
+      realpath: async (path) => path,
+      readdir: async (path) => (path === root ? [dirent('file.txt', 'file')] : []),
+      lstat: async (path) => {
+        if (path === root) {
+          rootLstatCalls += 1
+          return directoryStats(rootLstatCalls === 1 ? { dev: 1, ino: 1 } : { dev: 2, ino: 2 })
+        }
+        return fileStats({ dev: 1, ino: 5 })
+      }
+    }
+
+    const result = await scanProjectDirectory('handle-6', root, {
+      fs: fakeFs,
+      expectedRootIdentity: { dev: 1, ino: 1 }
+    })
+
+    expect(result.files).toEqual([])
+    expect(result.warnings[0]).toMatchObject({ code: 'SCAN_ABORTED', relativePath: '.' })
+  })
+
+  it('文件元数据读取后父目录身份变化时终止扫描', async () => {
+    const root = '/root'
+    let rootLstatCalls = 0
+    const fakeFs: ScanFileSystem = {
+      realpath: async (path) => path,
+      readdir: async (path) => (path === root ? [dirent('file.txt', 'file')] : []),
+      lstat: async (path) => {
+        if (path === root) {
+          rootLstatCalls += 1
+          return directoryStats(rootLstatCalls <= 3 ? { dev: 1, ino: 1 } : { dev: 2, ino: 2 })
+        }
+        return fileStats({ dev: 1, ino: 5 })
+      }
+    }
+
+    const result = await scanProjectDirectory('handle-7', root, {
+      fs: fakeFs,
+      expectedRootIdentity: { dev: 1, ino: 1 }
+    })
+
+    expect(result.files).toEqual([])
+    expect(result.warnings[0]).toMatchObject({ code: 'SCAN_ABORTED' })
   })
 })

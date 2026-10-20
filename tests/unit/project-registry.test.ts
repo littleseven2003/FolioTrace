@@ -39,6 +39,10 @@ describe('ProjectRegistry', () => {
     expect(resolved.ok).toBe(true)
     if (!resolved.ok) return
     expect(resolved.value.rootPath).toBe(root)
+    expect(resolved.value.rootIdentity).toEqual({
+      dev: expect.any(Number),
+      ino: expect.any(Number)
+    })
   })
 
   it('未知 handle 被拒绝', () => {
@@ -71,6 +75,8 @@ describe('scanAuthorizedProject', () => {
     const registry = new ProjectRegistry()
     const authorized = await registry.authorize(root)
     if (!authorized.ok) throw new Error('授权失败')
+    const resolved = registry.resolve(authorized.value.handle)
+    if (!resolved.ok) throw new Error('解析失败')
     const scanner = vi.fn(
       async (handle: string): Promise<ProjectScan> => ({
         handle,
@@ -83,7 +89,9 @@ describe('scanAuthorizedProject', () => {
     const result = await scanAuthorizedProject(authorized.value.handle, registry, scanner)
 
     expect(result.ok).toBe(true)
-    expect(scanner).toHaveBeenCalledWith(authorized.value.handle, root)
+    expect(scanner).toHaveBeenCalledWith(authorized.value.handle, root, {
+      expectedRootIdentity: resolved.value.rootIdentity
+    })
   })
 
   it('未知 handle 不调用扫描器', async () => {

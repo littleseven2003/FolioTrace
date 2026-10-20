@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto'
-import { realpath, stat } from 'node:fs/promises'
+import { lstat, realpath } from 'node:fs/promises'
 import { basename } from 'node:path'
 import type { ProjectSummary } from '../../shared/files'
 import { ERROR_MESSAGES, fail, ok, type Result } from '../../shared/result'
+import type { FileIdentity } from './file-scanner'
 
 export interface AuthorizedProject {
   project: ProjectSummary
   /** 仅保存在主进程，不通过 IPC 返回。 */
   rootPath: string
+  /** 授权时的根目录 dev/ino，用于扫描开头确认目录未被替换。 */
+  rootIdentity: FileIdentity
 }
 
 function permissionDenied(error: unknown): boolean {
@@ -27,8 +30,8 @@ export class ProjectRegistry {
 
     try {
       const canonicalRoot = await realpath(rootPath)
-      const stats = await stat(canonicalRoot)
-      if (!stats.isDirectory()) {
+      const stats = await lstat(canonicalRoot)
+      if (!stats.isDirectory() || stats.isSymbolicLink()) {
         return fail('INVALID_PROJECT_PATH', ERROR_MESSAGES.invalidProjectPath)
       }
 
@@ -38,7 +41,11 @@ export class ProjectRegistry {
         openedAt: new Date().toISOString(),
         readOnly: true
       }
-      this.projects.set(project.handle, { project, rootPath: canonicalRoot })
+      this.projects.set(project.handle, {
+        project,
+        rootPath: canonicalRoot,
+        rootIdentity: { dev: stats.dev, ino: stats.ino }
+      })
       return ok(project)
     } catch (error) {
       if (permissionDenied(error)) {

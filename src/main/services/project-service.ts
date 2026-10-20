@@ -1,9 +1,17 @@
 import type { ProjectScan } from '../../shared/files'
 import { ERROR_MESSAGES, fail, ok, type Result } from '../../shared/result'
-import { scanProjectDirectory } from './file-scanner'
+import { scanProjectDirectory, type FileIdentity } from './file-scanner'
 import type { ProjectRegistry } from './project-registry'
 
-export type ScanProject = (handle: string, rootPath: string) => Promise<ProjectScan>
+export interface ScanProjectOptions {
+  expectedRootIdentity: FileIdentity
+}
+
+export type ScanProject = (
+  handle: string,
+  rootPath: string,
+  options: ScanProjectOptions
+) => Promise<ProjectScan>
 
 /** 凭 handle 扫描主进程已授权的目录；不接受 renderer 提供的绝对路径。 */
 export async function scanAuthorizedProject(
@@ -17,7 +25,11 @@ export async function scanAuthorizedProject(
   }
 
   try {
-    return ok(await scanner(handle, resolved.value.rootPath))
+    return ok(
+      await scanner(handle, resolved.value.rootPath, {
+        expectedRootIdentity: resolved.value.rootIdentity
+      })
+    )
   } catch (error) {
     console.error('[scan] 扫描项目文件失败：', error)
     return fail('INTERNAL_ERROR', ERROR_MESSAGES.scanFailed)

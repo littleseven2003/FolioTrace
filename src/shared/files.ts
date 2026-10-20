@@ -39,6 +39,7 @@ export type ScanWarningCode =
   | 'ENTRY_DISAPPEARED'
   | 'PATH_OUTSIDE_ROOT'
   | 'UNREADABLE_DIRECTORY'
+  | 'SCAN_ABORTED'
 
 export interface ScanWarning {
   code: ScanWarningCode
