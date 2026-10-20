@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- 修复真实目录扫描的目录替换竞态：realpath 校验后、readdir 前路径可被替换为根外符号链接，旧实现可能把根外文件列入结果。现在记录根目录 `dev/ino`，在目录读取与文件元数据读取前后复核 realpath 与身份；检测到替换时终止整次扫描、返回 `SCAN_ABORTED` 并丢弃全部结果，不采用部分输出。
+
 ### Changed
 
 - `getRuntimeInfo`、`getProjectSnapshot` 改为返回共享 `Result<T>`；读取失败显示固定中文消息并支持重试，不向界面暴露内部异常或堆栈。

@@ -64,4 +64,6 @@ type Result<T> =
 - `files.scan` 只接受当前会话已授权的 handle，不接受 renderer 传入的根路径。
 - 扫描忽略 `.git`、`.docwork`、`node_modules`、`.svn`、`.hg` 等内部目录；跳过所有符号链接；目录经 realpath 校验必须位于根目录内。
 - 权限不足、目录不可读、扫描期间文件消失不会中断整次扫描，返回 `warnings`；文件初始分类为 `unclassified`。
+- 目录替换防护：授权时记录根目录 `dev/ino`；扫描开始、目录 readdir 前后、文件 lstat 前后复核 realpath 与目录身份；任一变化终止整次扫描，返回 `SCAN_ABORTED`、`files` 为空。
+- 平台限制：Node 在 macOS 上没有 openat/fd-relative 元数据接口，无法完全消除单次系统调用边界内瞬时替换并恢复路径的竞态；当前保证为检测到持久替换即失效关闭，且从不读取文件内容。其他平台未验证。
 - 扫描不创建或修改业务文件、`project.json`、`AGENTS.md`，也不登记版本或关系。
