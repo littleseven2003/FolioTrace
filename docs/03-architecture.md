@@ -37,7 +37,7 @@ FolioTrace/
 
 ## 源码树目标（M1 第二步已创建 main/preload/renderer/domain/shared 与 tests）
 
-当前已创建 `src/main`（index、ipc、mocks、services）、`src/preload`、`src/renderer`（app、components、features/materials、hooks、lib、styles）、`src/domain`、`src/shared` 与 `tests/unit`、`tests/integration`；下面目录树中的 adapters/fs、tasks、graph 等仍待后续阶段创建。
+当前已创建 `src/main`（index、ipc、mocks、services 含 scanner/registry）、`src/preload`、`src/renderer`（app、components、features/materials、features/files、hooks、lib、styles）、`src/domain`、`src/shared` 与 `tests/unit`、`tests/integration`；下面目录树中的 adapters/fs、tasks、graph 等仍待后续阶段创建。
 
 ```text
 src/
