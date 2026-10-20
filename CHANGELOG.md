@@ -11,6 +11,7 @@
 
 ### Added
 
+- M1 第一步：Electron 44 + React 19 + TypeScript 5.9 + Vite 8 开发环境；最小 main/preload/renderer 窗口与 `window.folio.getRuntimeInfo()` 桥接；提交 `package-lock.json` 与工具链 ADR。
 - 本地 commit-msg hook 与 CI 提交/PR 标题检查，要求英文类型和中文描述。
 
 - 文脉 / FolioTrace 产品范围、架构、Agent 协议、目录树、阶段路线和测试标准。

@@ -4,7 +4,7 @@
 
 面向个人与小团队的本地文档材料工作台：管理参考范围、过程材料、版本历史和跨文件配套关系。写作继续在 Codex、DSH 等外部 Agent 中完成。
 
-> 当前阶段：开发启动包，尚无可安装的桌面应用。已包含可交互 HTML 原型、产品与架构说明、数据协议、模拟项目、开发提示词及仓库检查。不要把原型中的模拟操作当作真实文件管理。
+> 当前阶段：M1 桌面壳开发中。已有可启动的最小 Electron 窗口与隔离的 main/preload/renderer 边界；尚未实现目录扫描、版本图谱、任务管理或 Agent 接入，也还没有可安装包。不要把原型中的模拟操作当作真实文件管理。
 
 ## 从这里开始
 
@@ -26,13 +26,24 @@
 
 Electron + React + TypeScript + Vite，macOS 优先，保留跨平台结构。JSON 项目数据跟随业务文件夹；不部署云服务，不要求模型 API Key。
 
-现在可运行的检查（Node.js 22.12+）：
+## 本地开发（Node.js 22.12+）
 
 ```sh
+npm install
+npm run dev
+```
+
+窗口显示“文脉 / FolioTrace”和“开发环境已就绪”即表示开发环境可用。退出用 `Cmd+Q` 或终端 `Ctrl+C`。
+
+类型检查、生产构建与启动包检查：
+
+```sh
+npm run typecheck
+npm run build
 npm run check
 ```
 
-桌面应用脚本与依赖锁文件在 M1 阶段创建，现在没有 `npm run dev`。
+本轮实际验证环境与已知限制见 [开发状态](docs/STATUS.md)。
 
 ## 导航
 
