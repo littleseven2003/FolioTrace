@@ -1,7 +1,21 @@
-# 仓库接入
+# 仓库接入记录
 
-目标远程：公开 GitHub 仓库 `littleseven2003/FolioTrace`。
+核验日期：2026-10-20
 
-当前正在初始化本地 main 并接入远程；完成后本文件会更新为核验状态。
+- 公开仓库：https://github.com/littleseven2003/FolioTrace
+- origin：https://github.com/littleseven2003/FolioTrace.git
+- 默认分支：main；本地 main 跟踪 origin/main。
+- 首次提交：bf8a1c9，开发启动包。
+- 首次 GitHub CI：通过，https://github.com/littleseven2003/FolioTrace/actions/runs/39357915569 。
+- 本地启动包检查：npm run check 通过。
+- 许可证：MIT；Lucide 许可另行保留。
 
-本项目默认 MIT 许可。Git 作者身份仅在本仓库配置，使用 GitHub noreply 地址；不修改全局 Git 配置。
+## 已配置主分支保护
+
+普通贡献要求 PR；合并前必须通过 starter-check，且分支需与 main 同步；要求解决讨论。个人阶段不强制他人批准（required approvals=0）。禁止普通强推及删除 main。
+
+管理员未纳入强制保护，保留初始化和恢复时的绕过能力；日常仍遵循特性分支 + PR，不以管理员权限跳过失败检查。小团队扩大后可启用 enforce_admins，并要求 1 位审核者。
+
+Git 作者身份仅在此仓库配置为 GitHub 账号及 noreply 地址，未修改全局设置。远程仓库不包含真实业务材料、模型凭据或用户本地路径。
+
+CI 目前只代表启动包检查通过；M1 完成后需加入应用类型、单测、构建检查，再更新保护所需状态名称。
