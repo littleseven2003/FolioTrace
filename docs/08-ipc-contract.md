@@ -12,6 +12,10 @@ type FolioErrorCode =
   | 'INVALID_PROJECT_PATH'
   | 'PERMISSION_DENIED'
   | 'PATH_OUTSIDE_ROOT'
+  | 'PROJECT_METADATA_INVALID'
+  | 'UNSUPPORTED_SCHEMA'
+  | 'PROJECT_LOCKED'
+  | 'REVISION_CONFLICT'
 
 type Result<T> =
   | { ok: true; value: T }
@@ -24,8 +28,12 @@ type Result<T> =
 - `INVALID_PROJECT_PATH`：所选路径不存在、不是文件夹或不可解析。
 - `PERMISSION_DENIED`：目录/文件读取权限不足；扫描内部读取失败也可降级为警告。
 - `PATH_OUTSIDE_ROOT`：路径经 realpath 校验后位于项目根目录之外。
+- `PROJECT_METADATA_INVALID`：project.json 损坏或不符合 schema，未做任何修改。
+- `UNSUPPORTED_SCHEMA`：schemaVersion 高于当前应用支持范围，只提示不覆盖。
+- `PROJECT_LOCKED`：同主机存在活动锁或锁无法安全回收。
+- `REVISION_CONFLICT`：写入时 expectedRevision 与当前 revision 不匹配，拒绝覆盖。
 
-尚未实现的错误码在对应方法落地时加入：PROJECT_LOCKED、REVISION_CONFLICT、SCHEMA_INVALID、HASH_MISMATCH、MISSING_FILE、EVENT_ID_CONFLICT、UNSUPPORTED_SCHEMA。
+尚未实现的错误码在对应方法落地时加入：SCHEMA_INVALID、HASH_MISMATCH、MISSING_FILE、EVENT_ID_CONFLICT。
 
 ## 调用来源校验（M1 已实现）
 
@@ -42,6 +50,8 @@ type Result<T> =
 | runtime.getInfo | 无 | `Result<RuntimeInfo>`；应用、Electron 与 Chromium 版本 |
 | project.getSnapshot | 无 | `Result<ProjectSnapshot>`；M1 模拟工作台快照，不读写真实项目 |
 | projects.choose | 无，调用原生目录选择器 | 已实现（M2）：`Result<ChooseProjectOutcome>`；取消为正常结果 `{canceled:true}`，成功返回 handle 与只读摘要 |
+| project.getMetadata | handle | 已实现（M2）：`Result<ProjectMetadataState>`；未初始化返回 `{status:'none'}`，不创建文件 |
+| project.initialize | handle | 已实现（M2）：`Result<InitializeProjectOutcome>`；仅用户触发，创建 `.docwork/project.json`；已有有效项目返回 existing、不覆盖 |
 | files.scan | handle | 已实现（M2）：`Result<ProjectScan>`；返回相对路径、类型、大小、修改时间、未分类与警告，只读元数据 |
 | projects.get | handle | 未实现（M2 后续）：ProjectSnapshot |
 | files.classify | handle, fileIds, role, expectedRevision | 未实现（M2 后续）：新 revision |
@@ -67,3 +77,12 @@ type Result<T> =
 - 目录替换防护：授权时记录根目录 `dev/ino`；扫描开始、目录 readdir 前后、文件 lstat 前后复核 realpath 与目录身份；任一变化终止整次扫描，返回 `SCAN_ABORTED`、`files` 为空。
 - 平台限制：Node 在 macOS 上没有 openat/fd-relative 元数据接口，无法完全消除单次系统调用边界内瞬时替换并恢复路径的竞态；当前保证为检测到持久替换即失效关闭，且从不读取文件内容。其他平台未验证。
 - 扫描不创建或修改业务文件、`project.json`、`AGENTS.md`，也不登记版本或关系。
+
+## M2 项目元数据语义
+
+- 打开文件夹只读取元数据状态，不自动创建 `.docwork` 或 `project.json`；初始化必须由用户显式触发。
+- 初始化使用现有 `schemas/project.schema.json`，不修改协议：`schemaVersion=1`、`revision=1`，files/documents/versions/relations/tasks/importedEvents 均为空。
+- 已有 `project.json` 用 Ajv 2020 + date-time format 校验后读取；保留原有 ID、分类与集合数据。损坏或不支持的高版本只返回错误，不覆盖重建。
+- 原子写入：同目录临时文件 write → fsync → rename，再同步目录；`.docwork/project.lock` 限制单写者；`writeProject` 使用 expectedRevision，冲突返回 `REVISION_CONFLICT`。
+- 拒绝 `.docwork` 或 `project.json` 为符号链接；管理目录 realpath 必须等于预期路径。
+- 重新选择同一文件夹可读取原项目；自动恢复最近项目、文件分类写回尚未实现。
