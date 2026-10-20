@@ -4,6 +4,7 @@ import type { RuntimeInfo } from '../../../shared/ipc'
 import type { Material, MaterialVersion } from '../../../shared/project'
 import { getLatestVersion } from '../../../shared/project'
 import { EmptyState, ErrorState, LoadingState } from '../components/Feedback'
+import { BrandMark } from '../components/BrandMark'
 import { PlaceholderPage } from '../components/PlaceholderPage'
 import { Sidebar } from '../components/Sidebar'
 import { MaterialsPage } from '../features/materials/MaterialsPage'
@@ -65,9 +66,7 @@ export function App(): JSX.Element {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            文
-          </span>
+          <BrandMark />
           <span className="brand-name">{APP_TITLE}</span>
         </div>
         <p className="breadcrumb">

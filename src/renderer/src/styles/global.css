@@ -88,16 +88,11 @@ a:focus-visible {
   gap: 10px;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 29px;
-  height: 29px;
-  border-radius: 8px;
-  background: var(--blue);
-  color: #fff;
-  font: 20px Georgia, 'Songti SC', serif;
-  box-shadow: 0 4px 12px rgba(51, 97, 189, 0.22);
+.brand-logo {
+  display: block;
+  width: auto;
+  height: 31px;
+  flex-shrink: 0;
 }
 
 .brand-name {

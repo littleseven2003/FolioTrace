@@ -38,6 +38,17 @@ beforeEach(() => {
 })
 
 describe('产出材料工作台', () => {
+  it('顶部品牌区复用 SVG 标志，且不会重复朗读名称', async () => {
+    await renderLoadedWorkbench()
+
+    const logo = document.querySelector('img.brand-logo')
+    expect(logo).not.toBeNull()
+    expect(logo).toHaveAttribute('alt', '')
+    expect(logo).toHaveAttribute('aria-hidden', 'true')
+    expect(logo?.getAttribute('src')).toBeTruthy()
+    expect(screen.getByText('文脉 / FolioTrace')).toBeInTheDocument()
+  })
+
   it('默认显示三份材料，PPT 最新版本带“最新生成”但不是“当前采用”', async () => {
     await renderLoadedWorkbench()
 
