@@ -4,10 +4,14 @@ import { APP_TITLE } from '../shared/app'
 import { registerIpcHandlers } from './ipc/handlers'
 import { createTrustedRenderer, isTrustedRendererUrl, type TrustedRenderer } from './ipc/trust'
 import { MockProjectRepository } from './services/mock-repository'
+import { ProjectMetadataStore } from './services/project-metadata-store'
+import { ProjectRegistry } from './services/project-registry'
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL'] ?? null
 const RENDERER_ENTRY_PATH = join(__dirname, '../renderer/index.html')
 const repository = new MockProjectRepository()
+const projectRegistry = new ProjectRegistry()
+const metadataStore = new ProjectMetadataStore()
 
 let mainWindow: BrowserWindow | null = null
 
@@ -85,7 +89,7 @@ void app.whenReady().then(() => {
     callback(false)
   })
 
-  registerIpcHandlers({ repository, getTrustedRenderer })
+  registerIpcHandlers({ repository, projectRegistry, metadataStore, getTrustedRenderer })
   createWindow()
 
   app.on('activate', () => {

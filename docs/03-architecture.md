@@ -37,7 +37,7 @@ FolioTrace/
 
 ## 源码树目标（M1 第二步已创建 main/preload/renderer/domain/shared 与 tests）
 
-当前已创建 `src/main`（index、ipc、mocks、services）、`src/preload`、`src/renderer`（app、components、features/materials、hooks、lib、styles）、`src/domain`、`src/shared` 与 `tests/unit`、`tests/integration`；下面目录树中的 adapters/fs、tasks、graph 等仍待后续阶段创建。
+当前已创建 `src/main`（index、ipc、mocks、services 含 scanner/registry）、`src/preload`、`src/renderer`（app、components、features/materials、features/files、hooks、lib、styles）、`src/domain`、`src/shared` 与 `tests/unit`、`tests/integration`；下面目录树中的 adapters/fs、tasks、graph 等仍待后续阶段创建。
 
 ```text
 src/
@@ -75,6 +75,10 @@ contextIsolation=true、nodeIntegration=false、sandbox=true；拒绝任意窗�
 一个业务项目同时仅一个文脉写入实例，跨进程 lockfile + project.revision 乐观检查；锁过期需核实进程死亡，不能只凭时间覆盖。MVP 不支持网络共享目录上的协同写入。
 
 project.json 使用同目录临时文件 -> fsync -> 原子 rename，保留上一个有效快照；失败不留下半个快照。导入事件及 importedEvents 账本在同一个 JSON 提交。提交后再生成索引和日志；投影失败不回滚权威快照，标记待重建。Agent 只追加自己的变更记录，不争用 project.json。
+
+## 多文件材料演进（M3 设计目标）
+
+当前 v1 单文件结构继续用于 M2。M2 目录折叠仅由 renderer 从安全扫描结果派生，不新增文件系统权限，不写业务元数据。M3 先按 [材料与资源设计](10-material-bundles.md) 建立 v2 迁移 ADR，再同步三套 schema、领域模型、IPC、fixture 和 Agent 模板。Version 保存成员路径/指纹快照，不能只持有动态目录路径；资源发现、清单校验与成员指纹在 main，renderer 不扫描磁盘或解析未授权外链。清单不保存资源字节；历史恢复能力不得超出实际归档实现。
 
 ## 数据迁移
 

@@ -5,7 +5,22 @@
 renderer 通过 `window.folio` 调用具名方法，所有方法返回 `Promise<Result<T>>`：
 
 ```ts
-type FolioErrorCode = 'INTERNAL_ERROR' | 'UNTRUSTED_SOURCE'
+type FolioErrorCode =
+  | 'INTERNAL_ERROR'
+  | 'UNTRUSTED_SOURCE'
+  | 'PROJECT_NOT_FOUND'
+  | 'INVALID_PROJECT_PATH'
+  | 'PERMISSION_DENIED'
+  | 'PATH_OUTSIDE_ROOT'
+  | 'PROJECT_METADATA_INVALID'
+  | 'UNSUPPORTED_SCHEMA'
+  | 'PROJECT_LOCKED'
+  | 'REVISION_CONFLICT'
+  | 'ROOT_IDENTITY_MISMATCH'
+  | 'PROJECT_NOT_INITIALIZED'
+  | 'INVALID_CLASSIFICATION'
+  | 'FILE_NOT_FOUND'
+  | 'FILE_CHANGED'
 
 type Result<T> =
   | { ok: true; value: T }
@@ -14,8 +29,29 @@ type Result<T> =
 
 - `INTERNAL_ERROR`：读取或处理失败。界面只显示固定中文消息并允许重试；异常对象与堆栈只写入主进程日志，不进入 `Result` 或界面。
 - `UNTRUSTED_SOURCE`：调用窗口、框架或页面 URL 不属于可信入口，直接拒绝。
+- `PROJECT_NOT_FOUND`：handle 不存在或会话授权已失效。
+- `INVALID_PROJECT_PATH`：所选路径不存在、不是文件夹或不可解析。
+- `PERMISSION_DENIED`：目录/文件读取权限不足；扫描内部读取失败也可降级为警告。
+- `PATH_OUTSIDE_ROOT`：路径经 realpath 校验后位于项目根目录之外。
+- `PROJECT_METADATA_INVALID`：project.json 损坏或不符合 schema，未做任何修改。
+- `UNSUPPORTED_SCHEMA`：schemaVersion 高于当前应用支持范围，只提示不覆盖。
+- `PROJECT_LOCKED`：同主机存在活动锁或锁无法安全回收。
+- `REVISION_CONFLICT`：写入时 expectedRevision 与当前 revision 不匹配，拒绝覆盖。
+- `ROOT_IDENTITY_MISMATCH`：根目录已被移走、替换为符号链接/其他目录，或祖先改变导致 realpath 与授权时不一致；拒绝操作且不触碰任何内容。
+- `PROJECT_NOT_INITIALIZED`：项目尚未初始化，分类写入前拒绝，不创建管理目录。
+- `INVALID_CLASSIFICATION`：role 或 expectedRevision 非法，未做任何写入。
+- `FILE_NOT_FOUND`：待分类文件不存在、不是普通文件，或是符号链接/根外路径。
+- `FILE_CHANGED`：读取文件内容期间 dev/ino/size/mtime 发生变化，整次拒绝，不写入可能过期的指纹。
 
-其余计划错误码在实现对应方法时加入：PATH_OUTSIDE_ROOT、PROJECT_LOCKED、REVISION_CONFLICT、SCHEMA_INVALID、HASH_MISMATCH、MISSING_FILE、EVENT_ID_CONFLICT、UNSUPPORTED_SCHEMA、PERMISSION_DENIED。
+尚未实现的错误码在对应方法落地时加入：SCHEMA_INVALID、HASH_MISMATCH、MISSING_FILE、EVENT_ID_CONFLICT。
+
+## M2 文件用途分类语义
+
+- renderer 只能传当前会话已授权 handle 与项目根内相对路径；绝对路径、`..`、反斜杠、盘符、内部管理目录与系统临时文件一律拒绝。
+- 首次登记读取文件内容计算真实 SHA-256，生成 `file-<uuid>` 稳定 ID；不保存文件内容，不修改业务文件。
+- 已登记文件修改用途只更新 role，保留原 ID、原 SHA-256 与其他实体数据；内容指纹与记录不一致时返回 `contentChanged=true`，保留旧指纹并提示漂移。
+- 写入复用授权根复核、lockfile、expectedRevision 与原子 rename；任何校验或写入失败都不产生部分写入。revision 过期返回 `REVISION_CONFLICT`，界面提示重新读取。
+- 未初始化项目不提供分类入口，调用分类返回 `PROJECT_NOT_INITIALIZED`，不创建 `.docwork`。
 
 ## 调用来源校验（M1 已实现）
 
@@ -25,17 +61,23 @@ type Result<T> =
 - 导航层拒绝非可信主框架导航、服务端重定向、非主框架导航、新窗口与 webview 附加。
 - renderer 仍不接触 Node、fs、shell 或 `ipcRenderer`。
 
+## 多文件版本演进边界
+
+当前运行时和已实现的文件用途接口仍使用 v1。下表未实现的 versions.register、tasks.create、changes.import 等输入仅为原单文件草案；M3 实施前须按 [材料与配套资源设计](10-material-bundles.md) 和正式 v2 ADR 同步为完整成员清单与快照，不能沿用只含 fileId 的接口来登记多文件版本。目录展开、搜索和平铺切换是 renderer 展示状态，不增加通用目录读取 IPC。
+
 ## 方法
 
 | 方法 | 输入 | 输出 / 效果 |
 | --- | --- | --- |
 | runtime.getInfo | 无 | `Result<RuntimeInfo>`；应用、Electron 与 Chromium 版本 |
-| project.getSnapshot | 无 | `Result<ProjectSnapshot>`；M1 为 MockRepository 只读快照，不读写真实项目 |
-| projects.choose | 无，调用原生目录选择器 | 未实现（M2）：projectHandle + ProjectSummary；取消单独结果 |
-| projects.get | handle | 未实现（M2）：ProjectSnapshot |
-| files.rescan | handle | 未实现（M2）：ScanSummary，不自动改变历史 |
-| files.classify | handle, fileIds, role, expectedRevision | 未实现（M2）：新 revision |
-| files.open | handle, fileId | 未实现（M2）：受控文档打开结果 |
+| project.getSnapshot | 无 | `Result<ProjectSnapshot>`；M1 模拟工作台快照，不读写真实项目 |
+| projects.choose | 无，调用原生目录选择器 | 已实现（M2）：`Result<ChooseProjectOutcome>`；取消为正常结果 `{canceled:true}`，成功返回 handle 与只读摘要 |
+| project.getMetadata | handle | 已实现（M2）：`Result<ProjectMetadataState>`；未初始化返回 `{status:'none'}`，不创建文件；已初始化返回 summary 与已登记文件（id/relativePath/role/sha256） |
+| project.initialize | handle | 已实现（M2）：`Result<InitializeProjectOutcome>`；仅用户触发，创建 `.docwork/project.json`；已有有效项目返回 existing、不覆盖 |
+| files.scan | handle | 已实现（M2）：`Result<ProjectScan>`；返回相对路径、类型、大小、修改时间、未分类与警告，只读元数据 |
+| projects.get | handle | 未实现（M2 后续）：ProjectSnapshot |
+| files.classify | handle, `{relativePath, role, expectedRevision}` | 已实现（M2）：`Result<ClassifyFileOutcome>`；首次登记生成稳定 file ID 与真实 SHA-256，再次修改用途保留 ID/指纹/关联数据；冲突返回 `REVISION_CONFLICT` |
+| files.open | handle, fileId | 未实现（M2 后续）：受控文档打开结果 |
 | documents.create | handle, name, expectedRevision | 未实现（M3）：documentId |
 | versions.register | handle, documentId, fileId, parentId, expectedRevision | 未实现（M3）：versionId；计算指纹 |
 | versions.adopt | handle, documentId, versionId, expectedRevision | 未实现（M3）：新 revision |
@@ -47,3 +89,24 @@ type Result<T> =
 | settings.update | allowed preferences | 未实现（M6）：持久化后的偏好 |
 
 主进程发 project:changed {handle,revision}，前端重新读取，不发绝对路径全文。取消订阅函数必须可调用，避免组件重挂载泄漏。
+
+## M2 只读扫描语义
+
+- 原生目录选择器只在主进程调用；授权后只返回 handle 与显示名，根路径留在主进程。
+- `files.scan` 只接受当前会话已授权的 handle，不接受 renderer 传入的根路径。
+- Handler 只把校验后的 handle 传给扫描服务，由服务内部 `registry.resolve(handle)` 取根路径；不要把路径当作 handle 传参。
+- 扫描忽略 `.git`、`.docwork`、`node_modules`、`.svn`、`.hg` 等内部目录；跳过所有符号链接；目录经 realpath 校验必须位于根目录内。
+- 权限不足、目录不可读、扫描期间文件消失不会中断整次扫描，返回 `warnings`；文件初始分类为 `unclassified`。
+- 目录替换防护：授权时记录根目录 `dev/ino`；扫描开始、目录 readdir 前后、文件 lstat 前后复核 realpath 与目录身份；任一变化终止整次扫描，返回 `SCAN_ABORTED`、`files` 为空。
+- 平台限制：Node 在 macOS 上没有 openat/fd-relative 元数据接口，无法完全消除单次系统调用边界内瞬时替换并恢复路径的竞态；当前保证为检测到持久替换即失效关闭，且从不读取文件内容。其他平台未验证。
+- 扫描不创建或修改业务文件、`project.json`、`AGENTS.md`，也不登记版本或关系。
+
+## M2 项目元数据语义
+
+- 打开文件夹只读取元数据状态，不自动创建 `.docwork` 或 `project.json`；初始化必须由用户显式触发。
+- 初始化使用现有 `schemas/project.schema.json`，不修改协议：`schemaVersion=1`、`revision=1`，files/documents/versions/relations/tasks/importedEvents 均为空。
+- 已有 `project.json` 用 Ajv 2020 + date-time format 校验后读取；保留原有 ID、分类与集合数据。损坏或不支持的高版本只返回错误，不覆盖重建。
+- 原子写入：同目录临时文件 write → fsync → rename，再同步目录；`.docwork/project.lock` 限制单写者；`writeProject` 使用 expectedRevision，冲突返回 `REVISION_CONFLICT`。
+- 拒绝 `.docwork` 或 `project.json` 为符号链接；管理目录 realpath 必须等于预期路径。
+- 所有元数据读取、初始化与更新都使用授权时记录的根路径 + dev/ino；读取、mkdir、锁文件、临时文件与 rename 前复核，不一致返回 `ROOT_IDENTITY_MISMATCH`，拒绝时不在根外创建、修改或删除内容。
+- 重新选择同一文件夹可读取原项目；自动恢复最近项目、文件分类写回尚未实现。

@@ -1,3 +1,11 @@
+import type {
+  ChooseProjectOutcome,
+  ClassifyFileInput,
+  ClassifyFileOutcome,
+  InitializeProjectOutcome,
+  ProjectMetadataState,
+  ProjectScan
+} from './files'
 import type { ProjectSnapshot } from './project'
 import type { Result } from './result'
 
@@ -7,7 +15,12 @@ import type { Result } from './result'
  */
 export const IPC_CHANNELS = {
   runtimeInfo: 'runtime:get-info',
-  projectSnapshot: 'project:get-snapshot'
+  projectSnapshot: 'project:get-snapshot',
+  projectChoose: 'project:choose',
+  projectGetMetadata: 'project:get-metadata',
+  projectInitialize: 'project:initialize',
+  filesScan: 'files:scan',
+  filesClassify: 'files:classify'
 } as const
 
 export interface RuntimeInfo {
@@ -20,4 +33,12 @@ export interface RuntimeInfo {
 export interface FolioApi {
   getRuntimeInfo(): Promise<Result<RuntimeInfo>>
   getProjectSnapshot(): Promise<Result<ProjectSnapshot>>
+  chooseProject(): Promise<Result<ChooseProjectOutcome>>
+  getProjectMetadata(handle: string): Promise<Result<ProjectMetadataState>>
+  initializeProject(handle: string): Promise<Result<InitializeProjectOutcome>>
+  scanProject(handle: string): Promise<Result<ProjectScan>>
+  classifyProjectFile(
+    handle: string,
+    input: ClassifyFileInput
+  ): Promise<Result<ClassifyFileOutcome>>
 }
