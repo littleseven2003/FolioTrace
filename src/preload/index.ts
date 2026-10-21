@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ChooseProjectOutcome,
+  ClassifyFileInput,
+  ClassifyFileOutcome,
   InitializeProjectOutcome,
   ProjectMetadataState,
   ProjectScan
@@ -46,7 +48,14 @@ const folio: FolioApi = {
       handle
     ),
   scanProject: (handle) =>
-    invoke<ProjectScan>(IPC_CHANNELS.filesScan, ERROR_MESSAGES.scanFailed, handle)
+    invoke<ProjectScan>(IPC_CHANNELS.filesScan, ERROR_MESSAGES.scanFailed, handle),
+  classifyProjectFile: (handle: string, input: ClassifyFileInput) =>
+    invoke<ClassifyFileOutcome>(
+      IPC_CHANNELS.filesClassify,
+      ERROR_MESSAGES.metadataWriteFailed,
+      handle,
+      input
+    )
 }
 
 contextBridge.exposeInMainWorld('folio', folio)

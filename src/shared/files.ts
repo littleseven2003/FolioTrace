@@ -2,6 +2,46 @@
 
 export type FileClassification = 'unclassified'
 
+/** 文件用途，与 schemas/project.schema.json 的 File.role 一致。 */
+export type FileRole = 'reference' | 'process' | 'output' | 'excluded' | 'unclassified'
+
+export const FILE_ROLE_LABELS: Readonly<Record<FileRole, string>> = {
+  reference: '参考资料',
+  process: '过程文件',
+  output: '产出材料',
+  excluded: '排除',
+  unclassified: '未分类'
+}
+
+export const FILE_ROLES: readonly FileRole[] = [
+  'reference',
+  'process',
+  'output',
+  'excluded',
+  'unclassified'
+]
+
+/** 已登记文件：ID 与 SHA-256 由主进程生成/计算，renderer 只读展示。 */
+export interface ProjectFileClassification {
+  id: string
+  relativePath: string
+  role: FileRole
+  sha256: string
+}
+
+export interface ClassifyFileInput {
+  relativePath: string
+  role: FileRole
+  expectedRevision: number
+}
+
+export interface ClassifyFileOutcome {
+  file: ProjectFileClassification
+  revision: number
+  /** 已登记文件内容与记录指纹不一致时为 true；此时保留原指纹。 */
+  contentChanged: boolean
+}
+
 export type FileCategory =
   | 'document'
   | 'spreadsheet'
@@ -68,7 +108,7 @@ export interface ProjectMetadataSummary {
 
 export type ProjectMetadataState =
   | { status: 'none' }
-  | { status: 'loaded'; summary: ProjectMetadataSummary }
+  | { status: 'loaded'; summary: ProjectMetadataSummary; files: ProjectFileClassification[] }
 
 export interface InitializeProjectOutcome {
   status: 'created' | 'existing'

@@ -159,7 +159,7 @@ export function useLocalProject(): LocalProjectState & LocalProjectActions {
       setState((current) => ({
         ...current,
         initializing: false,
-        metadata: { status: 'loaded', summary },
+        metadata: { status: 'loaded', summary, files: [] },
         metadataError: null,
         notice:
           result.value.status === 'created'

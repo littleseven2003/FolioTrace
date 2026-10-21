@@ -15,6 +15,10 @@ export type FolioErrorCode =
   | 'PROJECT_LOCKED'
   | 'REVISION_CONFLICT'
   | 'ROOT_IDENTITY_MISMATCH'
+  | 'PROJECT_NOT_INITIALIZED'
+  | 'INVALID_CLASSIFICATION'
+  | 'FILE_NOT_FOUND'
+  | 'FILE_CHANGED'
 
 export interface FolioError {
   code: FolioErrorCode
@@ -40,7 +44,13 @@ export const ERROR_MESSAGES = {
   projectLocked: '项目正被另一个文脉实例写入，请稍后重试。',
   revisionConflict: '项目数据已被其他操作更新，请重新读取后再试。',
   metadataWriteFailed: '写入项目元数据失败，请检查权限后重试。',
-  rootIdentityMismatch: '项目根目录已变化，请重新选择文件夹。'
+  rootIdentityMismatch: '项目根目录已变化，请重新选择文件夹。',
+  projectNotInitialized: '该文件夹尚未初始化文脉项目，暂不能保存文件用途。',
+  invalidClassification: '文件用途无效，未保存任何修改。',
+  fileNotFound: '文件已不存在或不在项目根目录内，未保存任何修改。',
+  fileChanged: '文件在读取期间发生变化，未保存任何修改，请重试。',
+  invalidFileRelativePath: '文件路径无效或不在项目根目录内，未保存任何修改。',
+  fileHashFailed: '读取文件内容计算指纹失败，未保存任何修改。'
 } as const
 
 export function ok<T>(value: T): Result<T> {

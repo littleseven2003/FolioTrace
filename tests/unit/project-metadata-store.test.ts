@@ -191,7 +191,15 @@ describe('ProjectMetadataStore.initializeProject', () => {
         documentCount: 1,
         versionCount: 0,
         relationCount: 0
-      }
+      },
+      files: [
+        {
+          id: 'file-ref',
+          relativePath: '参考.md',
+          role: 'reference',
+          sha256: 'a'.repeat(64)
+        }
+      ]
     })
 
     const loaded = await reopened.loadProject(await authorizedRoot(root))

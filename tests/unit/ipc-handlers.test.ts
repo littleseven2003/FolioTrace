@@ -8,7 +8,11 @@ import { createTrustedRenderer, type TrustedRenderer } from '../../src/main/ipc/
 import { MockProjectRepository } from '../../src/main/services/mock-repository'
 import { ProjectMetadataStore } from '../../src/main/services/project-metadata-store'
 import { ProjectRegistry } from '../../src/main/services/project-registry'
-import type { InitializeProjectOutcome, ProjectScan } from '../../src/shared/files'
+import type {
+  ClassifyFileOutcome,
+  InitializeProjectOutcome,
+  ProjectScan
+} from '../../src/shared/files'
 import { IPC_CHANNELS } from '../../src/shared/ipc'
 import type { FolioError, Result } from '../../src/shared/result'
 
@@ -214,5 +218,92 @@ describe('project:initialize handler', () => {
     expect(state.ok).toBe(true)
     if (!state.ok) return
     expect(state.value).toMatchObject({ status: 'loaded' })
+  })
+})
+
+describe('files:classify handler', () => {
+  it('已授权 handle 保存用途并通过元数据读取返回', async () => {
+    const registry = setupIpc()
+    const { handle } = await createAuthorizedProject(registry)
+    await invoke(IPC_CHANNELS.projectInitialize, createEvent(), handle)
+
+    const result = await invoke(IPC_CHANNELS.filesClassify, createEvent(), handle, {
+      relativePath: 'report.docx',
+      role: 'output',
+      expectedRevision: 1
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const outcome = result.value as ClassifyFileOutcome
+    expect(outcome.revision).toBe(2)
+    expect(outcome.file).toMatchObject({ relativePath: 'report.docx', role: 'output' })
+    expect(outcome.file.id).toMatch(/^file-/)
+    expect(outcome.file.sha256).toMatch(/^[a-f0-9]{64}$/)
+
+    const state = await invoke(IPC_CHANNELS.projectGetMetadata, createEvent(), handle)
+    expect(state.ok).toBe(true)
+    if (!state.ok) return
+    expect(state.value).toMatchObject({
+      status: 'loaded',
+      files: [outcome.file]
+    })
+  })
+
+  it('未知 handle 与不可信调用方被拒绝', async () => {
+    const registry = setupIpc()
+    const { handle } = await createAuthorizedProject(registry)
+    await invoke(IPC_CHANNELS.projectInitialize, createEvent(), handle)
+    const input = { relativePath: 'report.docx', role: 'reference', expectedRevision: 1 }
+
+    const unknown = expectFailure(
+      await invoke(IPC_CHANNELS.filesClassify, createEvent(), 'project-missing', input)
+    )
+    expect(unknown.code).toBe('PROJECT_NOT_FOUND')
+
+    const untrusted = expectFailure(
+      await invoke(
+        IPC_CHANNELS.filesClassify,
+        createEvent({ frameRoutingId: TRUSTED.frameRoutingId + 1 }),
+        handle,
+        input
+      )
+    )
+    expect(untrusted.code).toBe('UNTRUSTED_SOURCE')
+  })
+
+  it('过期 revision 返回冲突且不覆盖现有用途', async () => {
+    const registry = setupIpc()
+    const { handle } = await createAuthorizedProject(registry)
+    await invoke(IPC_CHANNELS.projectInitialize, createEvent(), handle)
+
+    const conflicted = expectFailure(
+      await invoke(IPC_CHANNELS.filesClassify, createEvent(), handle, {
+        relativePath: 'report.docx',
+        role: 'output',
+        expectedRevision: 2
+      })
+    )
+    expect(conflicted.code).toBe('REVISION_CONFLICT')
+
+    const state = await invoke(IPC_CHANNELS.projectGetMetadata, createEvent(), handle)
+    expect(state.ok).toBe(true)
+    if (!state.ok) return
+    expect(state.value).toMatchObject({ status: 'loaded', summary: { revision: 1 }, files: [] })
+  })
+
+  it('非法用途参数被拒绝', async () => {
+    const registry = setupIpc()
+    const { handle } = await createAuthorizedProject(registry)
+    await invoke(IPC_CHANNELS.projectInitialize, createEvent(), handle)
+
+    const error = expectFailure(
+      await invoke(IPC_CHANNELS.filesClassify, createEvent(), handle, {
+        relativePath: 'report.docx',
+        role: 'boss',
+        expectedRevision: 1
+      })
+    )
+    expect(error.code).toBe('INVALID_CLASSIFICATION')
   })
 })

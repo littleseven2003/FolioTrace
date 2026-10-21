@@ -9,6 +9,7 @@ import {
 import { APP_TITLE } from '../../shared/app'
 import type {
   ChooseProjectOutcome,
+  ClassifyFileOutcome,
   InitializeProjectOutcome,
   ProjectMetadataState,
   ProjectScan
@@ -17,6 +18,7 @@ import { IPC_CHANNELS } from '../../shared/ipc'
 import { ERROR_MESSAGES, fail, ok, type Result } from '../../shared/result'
 import type { ProjectMetadataStore, AuthorizedRoot } from '../services/project-metadata-store'
 import type { ProjectRegistry } from '../services/project-registry'
+import { classifyProjectFile } from '../services/project-classification'
 import { scanAuthorizedProject } from '../services/project-service'
 import type { ProjectRepository } from '../services/project-repository'
 import { respondProjectSnapshot, respondRuntimeInfo } from './respond'
@@ -159,6 +161,21 @@ export function registerIpcHandlers({
       // 扫描服务内部会 registry.resolve(handle)；这里必须传 handle，
       // 不能传绝对路径，否则已授权项目也会被判为 PROJECT_NOT_FOUND。
       return scanAuthorizedProject(handleCheck.value, projectRegistry)
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.filesClassify,
+    async (event, handle: unknown, input: unknown): Promise<Result<ClassifyFileOutcome>> => {
+      const callerCheck = validateCaller(event, getTrustedRenderer)
+      if (!callerCheck.ok) {
+        return fail(callerCheck.error.code, callerCheck.error.message)
+      }
+      const handleCheck = validateHandle(handle)
+      if (!handleCheck.ok) return handleCheck
+      const rootCheck = resolveAuthorizedProject(handleCheck.value, projectRegistry)
+      if (!rootCheck.ok) return rootCheck
+      return classifyProjectFile(rootCheck.value, input, metadataStore)
     }
   )
 }

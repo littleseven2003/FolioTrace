@@ -84,7 +84,7 @@ function pathsEqual(left: string, right: string): boolean {
  * - dev/ino 与授权时不同（换成另一个普通目录）→ 拒绝
  * - realpath 与授权时的 canonical 路径不同（祖先被替换）→ 拒绝
  */
-async function checkAuthorizedRoot(root: AuthorizedRoot): Promise<Result<void>> {
+export async function checkAuthorizedRoot(root: AuthorizedRoot): Promise<Result<void>> {
   let stats
   try {
     stats = await lstat(root.rootPath)
@@ -465,7 +465,16 @@ export class ProjectMetadataStore {
     const loaded = await this.loadProject(root)
     if (!loaded.ok) return loaded
     if (loaded.value.status === 'none') return ok({ status: 'none' })
-    return ok({ status: 'loaded', summary: summarize(loaded.value.project) })
+    return ok({
+      status: 'loaded',
+      summary: summarize(loaded.value.project),
+      files: loaded.value.project.files.map((file) => ({
+        id: file.id,
+        relativePath: file.relativePath,
+        role: file.role,
+        sha256: file.sha256
+      }))
+    })
   }
 
   /** 仅在用户主动点击初始化时调用；已有有效元数据时返回 existing，不覆盖。 */
