@@ -68,7 +68,7 @@ type Result<T> =
 | runtime.getInfo | 无 | `Result<RuntimeInfo>`；应用、Electron 与 Chromium 版本 |
 | project.getSnapshot | 无 | `Result<ProjectSnapshot>`；M1 模拟工作台快照，不读写真实项目 |
 | projects.choose | 无，调用原生目录选择器 | 已实现（M2）：`Result<ChooseProjectOutcome>`；取消为正常结果 `{canceled:true}`，成功返回 handle 与只读摘要 |
-| project.getMetadata | handle | 已实现（M2）：`Result<ProjectMetadataState>`；未初始化返回 `{status:'none'}`，不创建文件 |
+| project.getMetadata | handle | 已实现（M2）：`Result<ProjectMetadataState>`；未初始化返回 `{status:'none'}`，不创建文件；已初始化返回 summary 与已登记文件（id/relativePath/role/sha256） |
 | project.initialize | handle | 已实现（M2）：`Result<InitializeProjectOutcome>`；仅用户触发，创建 `.docwork/project.json`；已有有效项目返回 existing、不覆盖 |
 | files.scan | handle | 已实现（M2）：`Result<ProjectScan>`；返回相对路径、类型、大小、修改时间、未分类与警告，只读元数据 |
 | projects.get | handle | 未实现（M2 后续）：ProjectSnapshot |
