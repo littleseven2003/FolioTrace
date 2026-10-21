@@ -1,6 +1,6 @@
 # 开发状态
 
-更新时间：2026-10-20
+更新时间：2026-10-21
 
 ## 已完成 M0
 
@@ -159,6 +159,29 @@ npm run dev -- --noSandbox -- --disable-gpu
 - 窗口复现（Agent 执行）：真实 dev 窗口中完成上述“移走根目录 + 根外符号链接”后点击初始化，界面显示“项目根目录已变化，请重新选择文件夹。”；根外目录内容前后一致，迁移前目录也未出现 `.docwork`。
 - 剩余限制：仍是路径级“检查 → 系统调用”模式，无法完全消除单次系统调用边界内的瞬时替换竞态；其他平台未验证。
 
+### 扫描 IPC 参数回归修复（2026-10-21）
+
+- 复现：打开真实文件夹后，首次扫描与重新扫描均失败，界面同时出现“项目根目录已变化…”与“项目授权已失效…”；`files:scan` 返回 `PROJECT_NOT_FOUND`。
+- 根因：`filesScan` handler 先用 handle 解析出授权根路径，再把 `rootCheck.value.rootPath` 传给 `scanAuthorizedProject`；而该服务的第一个参数是 handle，内部会再执行 `registry.resolve(handle)`，绝对路径必然解析失败。
+- 修复：handler 直接把 `validateHandle` 后的 handle 交给 `scanAuthorizedProject`，根路径只由主进程授权表解析；`project:getMetadata` 与 `project:initialize` 仍走 `resolveAuthorizedProject`，保留授权根身份校验。
+- 新增 5 个 handler 层回归测试（`tests/unit/ipc-handlers.test.ts`）：只替换 Electron 运行时，使用真实 `ProjectRegistry`、`ProjectMetadataStore` 与真实临时目录；覆盖已授权 handle 经 `files:scan` 返回真实相对文件、未知 handle 与绝对路径均返回 `PROJECT_NOT_FOUND`、其他窗口/子框架/非入口 URL 返回 `UNTRUSTED_SOURCE`、授权根被替换后 `project:initialize` 仍返回 `ROOT_IDENTITY_MISMATCH`。移除修复后，该文件有 2 个测试失败，确认测试能捕获此回归。
+- 总计：12 个测试文件 / 73 个测试。
+
+### 自动检查
+
+| 命令 | 结果 |
+| --- | --- |
+| `npm run check` | 通过：137 个文件启动包检查、typecheck、lint、73 个测试、生产构建、提交标题自测 |
+| `npm run test` | 通过：12 个测试文件 / 73 个测试 |
+
+### 窗口验收（Agent 执行，非用户验收）
+
+- 真实 dev 窗口 + 主进程 inspector 替换目录选择器为合成临时目录（含 `report.docx`、`notes/plan.md`、`.git/config`），完成选择目录、首次扫描、重新扫描与项目初始化。
+- 首次扫描：显示“共 2 个文件”，清单为 `notes/plan.md`、`report.docx`；`.git` 内容未出现；无错误提示或警告。
+- 重新扫描：先在目录中新增 `rescan-note.md`，点击“重新扫描”后显示“共 3 个文件”并列出新文件，证明重新经过扫描 IPC 而非复用旧结果；仍无授权失效或根目录变化提示。
+- 项目初始化：点击“初始化文脉项目”后显示“文脉项目已初始化（revision 1）。”，元数据面板显示“已初始化 / revision 1”，初始化按钮消失；磁盘 `.docwork/project.json` 为 schemaVersion 1、revision 1、六个集合为空。
+- 说明：原生目录选择器的人工点击仍未由 Agent 执行；本次仍以 stub 驱动。
+
 ## 下一步（M2 剩余）
 
 - 文件分类（reference / process / output / excluded / unclassified）与分类写回；写回时使用现有 expectedRevision 冲突检查。
@@ -183,7 +206,7 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 ## 每阶段更新
 
-本轮分支 `feat/m2-project-files`，小步提交：`5b2f7a1`（M1 合并与 M2 交接）、`d3bdcc5`（只读扫描与目录授权）、`9a5e7dc`（目录选择与扫描 IPC）、`8f6c591`（全部文件真实列表）、`e3320a7`（扫描目录替换竞态修复）、`e2cbeae`（元数据校验与原子存储）、`c39e52d`（元数据 IPC）、`90fe017`（初始化入口界面）、`e1ded64`（授权根身份复核），以及文档提交。M1 分支 `feat/m1-shell` 已合并（`1a40fbc`）。Git 实际接入信息见 REPOSITORY.md。
+本轮分支 `feat/m2-project-files`，小步提交：`5b2f7a1`（M1 合并与 M2 交接）、`d3bdcc5`（只读扫描与目录授权）、`9a5e7dc`（目录选择与扫描 IPC）、`8f6c591`（全部文件真实列表）、`e3320a7`（扫描目录替换竞态修复）、`e2cbeae`（元数据校验与原子存储）、`c39e52d`（元数据 IPC）、`90fe017`（初始化入口界面）、`e1ded64`（授权根身份复核）、`4d74104`（扫描 IPC handle 参数修复），以及文档提交。M1 分支 `feat/m1-shell` 已合并（`1a40fbc`）。Git 实际接入信息见 REPOSITORY.md。
 
 ## 提交与版本规则更新
 

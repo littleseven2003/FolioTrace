@@ -74,6 +74,7 @@ type Result<T> =
 
 - 原生目录选择器只在主进程调用；授权后只返回 handle 与显示名，根路径留在主进程。
 - `files.scan` 只接受当前会话已授权的 handle，不接受 renderer 传入的根路径。
+- Handler 只把校验后的 handle 传给扫描服务，由服务内部 `registry.resolve(handle)` 取根路径；不要把路径当作 handle 传参。
 - 扫描忽略 `.git`、`.docwork`、`node_modules`、`.svn`、`.hg` 等内部目录；跳过所有符号链接；目录经 realpath 校验必须位于根目录内。
 - 权限不足、目录不可读、扫描期间文件消失不会中断整次扫描，返回 `warnings`；文件初始分类为 `unclassified`。
 - 目录替换防护：授权时记录根目录 `dev/ino`；扫描开始、目录 readdir 前后、文件 lstat 前后复核 realpath 与目录身份；任一变化终止整次扫描，返回 `SCAN_ABORTED`、`files` 为空。
