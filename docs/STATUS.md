@@ -182,9 +182,33 @@ npm run dev -- --noSandbox -- --disable-gpu
 - 项目初始化：点击“初始化文脉项目”后显示“文脉项目已初始化（revision 1）。”，元数据面板显示“已初始化 / revision 1”，初始化按钮消失；磁盘 `.docwork/project.json` 为 schemaVersion 1、revision 1、六个集合为空。
 - 说明：原生目录选择器的人工点击仍未由 Agent 执行；本次仍以 stub 驱动。
 
+### 文件用途分类与持久化（2026-10-21）
+
+- 已初始化项目可在“全部文件”逐项设置用途：参考资料 / 过程文件 / 产出材料 / 排除 / 未分类；未初始化时仍只读，不显示用途控件。
+- 新增 `files:classify` IPC：主进程校验调用来源、handle、relativePath、role 与 expectedRevision；拒绝绝对路径、`..`、反斜杠、`.docwork`/`.git` 等内部目录、目录与符号链接。
+- 首次登记生成 `file-<uuid>` 稳定 ID，并读取文件内容计算真实 SHA-256；只读取内容计算指纹，不存储内容、不修改业务文件。已登记文件只更新 role，保留 ID、原 SHA-256 以及 documents/versions/relations/tasks/importedEvents 等其他数据。
+- 内容变化时保留记录中的原指纹并返回 `contentChanged`，界面提示“文件内容已变化，保留上次登记的指纹”，不静默改写指纹，也不自动登记新版本。
+- 持久化复用 `ProjectMetadataStore.writeProject`：lockfile 单写者、expectedRevision 校验、同目录临时文件 fsync + rename 原子提交；revision 过期返回 `REVISION_CONFLICT`，界面提示重新读取，不覆盖。
+- 新增 9 个服务测试、4 个 IPC handler 测试、5 个交互测试（总计 91 个测试）。
+
+### 自动检查
+
+| 命令 | 结果 |
+| --- | --- |
+| `npm run check` | 通过：139 个文件启动包检查、typecheck、lint、91 个测试、生产构建、提交标题自测 |
+| `npm run test` | 通过：13 个测试文件 / 91 个测试 |
+
+### 窗口验收（Agent 执行，非用户验收）
+
+- 真实 dev 窗口 + 主进程 inspector 替换目录选择器为合成临时目录（含 `report.docx`、`notes/plan.md`、`draft.md`）。
+- 初始化后把 `report.docx` 设为“产出材料”：`project.json` revision 2、文件记录 1、ID 为 `file-<uuid>`、SHA-256 与 `shasum -a 256` 结果一致；其余文件保持未分类。
+- 重新扫描后用途仍在；退出并重启应用后重新打开同一文件夹，用途恢复为“产出材料”。
+- 冲突：外部把 `project.json` revision 从 2 改为 3 后再次修改用途，界面提示“项目数据已被其他操作更新，请重新读取后再试。”，原用途与磁盘 revision 3 均未被覆盖；点击“重新读取元数据”后再次保存成功（revision 4），ID 与 SHA-256 保持不变。
+- 说明：原生目录选择器的人工点击仍未由 Agent 执行；本次仍以 stub 驱动。
+
 ## 下一步（M2 剩余）
 
-- 文件分类（reference / process / output / excluded / unclassified）与分类写回；写回时使用现有 expectedRevision 冲突检查。
+- 批量指定用途、文件重命名后的记录迁移，以及内容漂移后的重新登记流程。
 - 自动恢复最近项目（当前需重新选择同一文件夹）。
 - 产出材料、项目总览、待处理在真实模式下仍为占位，等待 M3 / M5。
 - 生产 CSP、受控应用协议、打包签名与安装包尚未实现。
@@ -197,7 +221,8 @@ npm run dev -- --noSandbox -- --disable-gpu
 - 工作台目前只覆盖单项目、产出材料纵向切片；真实模式的文件/图谱/待处理内容与交互尚未实现。
 - 原生目录选择器的系统对话框人工点击未在 Agent 验收中执行；窗口验收通过 stub 覆盖取消/成功路径。
 - 扫描器对路径替换采用失效关闭策略，但受 Node/Electron 缺少 openat 类 API 限制，无法完全排除单次系统调用边界内的瞬时替换竞态；其他平台未验证。
-- 真实项目扫描结果只保存在 renderer 会话内；分类写回与自动恢复最近项目尚未实现；重启后需重新选择同一文件夹读取 project.json。
+- 文件用途按相对路径匹配并逐项保存；重命名后旧记录保留、新路径按新文件登记，不自动迁移；批量操作尚未实现。
+- 首次登记会流式读取文件内容计算 SHA-256（不保存内容）；内容漂移当前只提示并保留旧指纹，重新登记新版本留给版本登记阶段；自动恢复最近项目尚未实现，重启后需重新选择同一文件夹读取 project.json。
 - 元数据存储对管理目录/目标文件与授权根身份做静态拒绝与写前复核，但同样受 Node 缺少 openat 类 API 限制；锁文件只在同主机、同 PID 校验下回收陈旧锁，不支持网络共享目录并发。
 - 生产入口当前按 `file:` 路径精确比较；未来改用受控 `app://` 协议时需同步更新来源校验与测试。
 - IPC 来源校验依赖 Electron frame process/routing id；目前只在 macOS 验证，未做其他平台手工复验。
@@ -206,7 +231,7 @@ npm run dev -- --noSandbox -- --disable-gpu
 
 ## 每阶段更新
 
-本轮分支 `feat/m2-project-files`，小步提交：`5b2f7a1`（M1 合并与 M2 交接）、`d3bdcc5`（只读扫描与目录授权）、`9a5e7dc`（目录选择与扫描 IPC）、`8f6c591`（全部文件真实列表）、`e3320a7`（扫描目录替换竞态修复）、`e2cbeae`（元数据校验与原子存储）、`c39e52d`（元数据 IPC）、`90fe017`（初始化入口界面）、`e1ded64`（授权根身份复核）、`4d74104`（扫描 IPC handle 参数修复），以及文档提交。M1 分支 `feat/m1-shell` 已合并（`1a40fbc`）。Git 实际接入信息见 REPOSITORY.md。
+本轮分支 `feat/m2-project-files`，小步提交：`5b2f7a1`（M1 合并与 M2 交接）、`d3bdcc5`（只读扫描与目录授权）、`9a5e7dc`（目录选择与扫描 IPC）、`8f6c591`（全部文件真实列表）、`e3320a7`（扫描目录替换竞态修复）、`e2cbeae`（元数据校验与原子存储）、`c39e52d`（元数据 IPC）、`90fe017`（初始化入口界面）、`e1ded64`（授权根身份复核）、`4d74104`（扫描 IPC handle 参数修复）、`e522d38`（文件用途分类服务与 IPC）、`29e6c39`（全部文件页用途保存与恢复），以及文档提交。M1 分支 `feat/m1-shell` 已合并（`1a40fbc`）。Git 实际接入信息见 REPOSITORY.md。
 
 ## 提交与版本规则更新
 

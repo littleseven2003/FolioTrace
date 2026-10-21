@@ -19,6 +19,7 @@
 
 ### Added
 
+- M2 文件用途分类与持久化：已初始化项目可在“全部文件”逐项设置 reference/process/output/excluded/unclassified。首次登记生成 `file-<uuid>` 稳定 ID 并流式计算真实内容 SHA-256；再次修改用途保留 ID、原指纹与其他实体数据；内容变化时保留旧指纹并提示漂移。写入复用授权根校验、lockfile、expectedRevision 与原子 rename，冲突提示重新读取；未初始化项目保持只读。新增 9 个服务测试、4 个 IPC 测试、5 个交互测试（总计 91 个测试）。
 - M2 第二步：项目元数据初始化与重新读取。打开文件夹默认只读，仅用户点击初始化后创建 `.docwork/project.json`（schemaVersion=1、revision=1、空集合）；使用现有 schema + Ajv 2020 校验，保留已有 ID/分类等数据，损坏或不支持版本不覆盖重建。新增 lockfile 单写者、revision 冲突检查、同目录临时文件 fsync + rename 原子写入，并拒绝管理目录/目标文件符号链接。
 - M2 第一小步：原生目录选择与会话内目录授权；只读扫描真实文件夹，在“全部文件”展示相对路径、类型、大小、修改时间并标为未分类；支持手动重新扫描、权限/消失警告与错误重试。忽略内部管理目录，不跟随符号链接，不创建或修改业务文件、project.json、AGENTS.md。
 - 工作台顶部接入 A「文稿留痕」Logo：构建时导入 `assets/brand/logo.svg`，保持比例，空 `alt` + `aria-hidden` 避免与相邻名称重复朗读；新增品牌可访问性测试（总计 29 个测试）。

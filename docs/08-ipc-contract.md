@@ -17,6 +17,10 @@ type FolioErrorCode =
   | 'PROJECT_LOCKED'
   | 'REVISION_CONFLICT'
   | 'ROOT_IDENTITY_MISMATCH'
+  | 'PROJECT_NOT_INITIALIZED'
+  | 'INVALID_CLASSIFICATION'
+  | 'FILE_NOT_FOUND'
+  | 'FILE_CHANGED'
 
 type Result<T> =
   | { ok: true; value: T }
@@ -34,8 +38,20 @@ type Result<T> =
 - `PROJECT_LOCKED`：同主机存在活动锁或锁无法安全回收。
 - `REVISION_CONFLICT`：写入时 expectedRevision 与当前 revision 不匹配，拒绝覆盖。
 - `ROOT_IDENTITY_MISMATCH`：根目录已被移走、替换为符号链接/其他目录，或祖先改变导致 realpath 与授权时不一致；拒绝操作且不触碰任何内容。
+- `PROJECT_NOT_INITIALIZED`：项目尚未初始化，分类写入前拒绝，不创建管理目录。
+- `INVALID_CLASSIFICATION`：role 或 expectedRevision 非法，未做任何写入。
+- `FILE_NOT_FOUND`：待分类文件不存在、不是普通文件，或是符号链接/根外路径。
+- `FILE_CHANGED`：读取文件内容期间 dev/ino/size/mtime 发生变化，整次拒绝，不写入可能过期的指纹。
 
 尚未实现的错误码在对应方法落地时加入：SCHEMA_INVALID、HASH_MISMATCH、MISSING_FILE、EVENT_ID_CONFLICT。
+
+## M2 文件用途分类语义
+
+- renderer 只能传当前会话已授权 handle 与项目根内相对路径；绝对路径、`..`、反斜杠、盘符、内部管理目录与系统临时文件一律拒绝。
+- 首次登记读取文件内容计算真实 SHA-256，生成 `file-<uuid>` 稳定 ID；不保存文件内容，不修改业务文件。
+- 已登记文件修改用途只更新 role，保留原 ID、原 SHA-256 与其他实体数据；内容指纹与记录不一致时返回 `contentChanged=true`，保留旧指纹并提示漂移。
+- 写入复用授权根复核、lockfile、expectedRevision 与原子 rename；任何校验或写入失败都不产生部分写入。revision 过期返回 `REVISION_CONFLICT`，界面提示重新读取。
+- 未初始化项目不提供分类入口，调用分类返回 `PROJECT_NOT_INITIALIZED`，不创建 `.docwork`。
 
 ## 调用来源校验（M1 已实现）
 
@@ -56,7 +72,7 @@ type Result<T> =
 | project.initialize | handle | 已实现（M2）：`Result<InitializeProjectOutcome>`；仅用户触发，创建 `.docwork/project.json`；已有有效项目返回 existing、不覆盖 |
 | files.scan | handle | 已实现（M2）：`Result<ProjectScan>`；返回相对路径、类型、大小、修改时间、未分类与警告，只读元数据 |
 | projects.get | handle | 未实现（M2 后续）：ProjectSnapshot |
-| files.classify | handle, fileIds, role, expectedRevision | 未实现（M2 后续）：新 revision |
+| files.classify | handle, `{relativePath, role, expectedRevision}` | 已实现（M2）：`Result<ClassifyFileOutcome>`；首次登记生成稳定 file ID 与真实 SHA-256，再次修改用途保留 ID/指纹/关联数据；冲突返回 `REVISION_CONFLICT` |
 | files.open | handle, fileId | 未实现（M2 后续）：受控文档打开结果 |
 | documents.create | handle, name, expectedRevision | 未实现（M3）：documentId |
 | versions.register | handle, documentId, fileId, parentId, expectedRevision | 未实现（M3）：versionId；计算指纹 |
