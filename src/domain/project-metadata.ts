@@ -1,6 +1,8 @@
 /** 与 schemas/project.schema.json（schemaVersion=1）对应的项目元数据模型。 */
 
-export type FileRole = 'reference' | 'process' | 'output' | 'excluded' | 'unclassified'
+import type { FileRole } from '../shared/files'
+
+export type { FileRole } from '../shared/files'
 
 export interface ProjectFileRecord {
   id: string
