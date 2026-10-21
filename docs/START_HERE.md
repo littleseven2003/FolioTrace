@@ -2,7 +2,7 @@
 
 ## 当前交付范围
 
-此仓库准备了开发依据和原型。M0 交付启动包；M1 第二步已创建基于模拟数据的工作台界面（见 [开发状态](STATUS.md)），真实文件管理功能尚未实现。由 DSH + deepseek-flash 分阶段构建真实程序。`deepseek-flash` 是用户选择的模型名称；不预设它的上下文窗口、工具权限、自动读规则行为或特定 API 参数。
+此仓库包含开发依据、原型与桌面程序。M1 已合并；M2 已有真实目录扫描、项目初始化和文件用途保存（见 [开发状态](STATUS.md)），目录折叠待实现，多文件材料版本计划在 M3 实现。由 DSH + deepseek-flash 分阶段构建真实程序。`deepseek-flash` 是用户选择的模型名称；不预设它的上下文窗口、工具权限、自动读规则行为或特定 API 参数。
 
 ## 推荐使用方式
 
@@ -29,6 +29,7 @@
 | 4 | docs/03-architecture.md | 目录和模块边界 |
 | 5 | docs/04-agent-protocol.md + schemas/ | 文件协议与一致性规则 |
 | 6 | docs/05-roadmap.md + docs/06-testing.md | 分阶段任务与验收 |
+| 7 | docs/10-material-bundles.md | 单文件/主文件＋资源/文件夹版本设计，当前 v1 与 M3 目标边界 |
 
 ## 开发前置检查
 

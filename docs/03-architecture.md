@@ -76,6 +76,10 @@ contextIsolation=true、nodeIntegration=false、sandbox=true；拒绝任意窗�
 
 project.json 使用同目录临时文件 -> fsync -> 原子 rename，保留上一个有效快照；失败不留下半个快照。导入事件及 importedEvents 账本在同一个 JSON 提交。提交后再生成索引和日志；投影失败不回滚权威快照，标记待重建。Agent 只追加自己的变更记录，不争用 project.json。
 
+## 多文件材料演进（M3 设计目标）
+
+当前 v1 单文件结构继续用于 M2。M2 目录折叠仅由 renderer 从安全扫描结果派生，不新增文件系统权限，不写业务元数据。M3 先按 [材料与资源设计](10-material-bundles.md) 建立 v2 迁移 ADR，再同步三套 schema、领域模型、IPC、fixture 和 Agent 模板。Version 保存成员路径/指纹快照，不能只持有动态目录路径；资源发现、清单校验与成员指纹在 main，renderer 不扫描磁盘或解析未授权外链。清单不保存资源字节；历史恢复能力不得超出实际归档实现。
+
 ## 数据迁移
 
 schemaVersion=1；未知高版本只读打开并提示升级。每次迁移先备份，纯函数迁移、失败恢复、测试旧 fixture。导出的 AGENTS.md 仅维护带标记片段；用户已有同名文件不得覆盖全文。

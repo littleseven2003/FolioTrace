@@ -61,6 +61,10 @@ type Result<T> =
 - 导航层拒绝非可信主框架导航、服务端重定向、非主框架导航、新窗口与 webview 附加。
 - renderer 仍不接触 Node、fs、shell 或 `ipcRenderer`。
 
+## 多文件版本演进边界
+
+当前运行时和已实现的文件用途接口仍使用 v1。下表未实现的 versions.register、tasks.create、changes.import 等输入仅为原单文件草案；M3 实施前须按 [材料与配套资源设计](10-material-bundles.md) 和正式 v2 ADR 同步为完整成员清单与快照，不能沿用只含 fileId 的接口来登记多文件版本。目录展开、搜索和平铺切换是 renderer 展示状态，不增加通用目录读取 IPC。
+
 ## 方法
 
 | 方法 | 输入 | 输出 / 效果 |
