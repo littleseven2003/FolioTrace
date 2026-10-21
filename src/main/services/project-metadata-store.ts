@@ -13,12 +13,19 @@ import type {
   ProjectMetadataSummary
 } from '../../shared/files'
 import { ERROR_MESSAGES, fail, ok, type Result } from '../../shared/result'
+import type { FileIdentity } from './file-scanner'
 import { validateProjectMetadata } from './project-schema-validator'
 
 const MANAGEMENT_DIRECTORY = '.docwork'
 const METADATA_FILE = 'project.json'
 const LOCK_FILE = 'project.lock'
 const MAX_METADATA_BYTES = 1024 * 1024
+
+/** 授权时记录的根路径与 dev/ino；所有元数据操作都必须携带并复核。 */
+export interface AuthorizedRoot {
+  rootPath: string
+  identity: FileIdentity
+}
 
 interface ProjectPaths {
   directory: string
@@ -71,6 +78,40 @@ function pathsEqual(left: string, right: string): boolean {
   return left === right
 }
 
+/**
+ * 任何元数据读写前的强制门禁：根路径必须仍是授权时的同一目录。
+ * - 最终组件是符号链接 → 拒绝
+ * - dev/ino 与授权时不同（换成另一个普通目录）→ 拒绝
+ * - realpath 与授权时的 canonical 路径不同（祖先被替换）→ 拒绝
+ */
+async function checkAuthorizedRoot(root: AuthorizedRoot): Promise<Result<void>> {
+  let stats
+  try {
+    stats = await lstat(root.rootPath)
+  } catch {
+    return fail('ROOT_IDENTITY_MISMATCH', ERROR_MESSAGES.rootIdentityMismatch)
+  }
+
+  if (stats.isSymbolicLink() || !stats.isDirectory()) {
+    return fail('ROOT_IDENTITY_MISMATCH', ERROR_MESSAGES.rootIdentityMismatch)
+  }
+
+  if (stats.dev !== root.identity.dev || stats.ino !== root.identity.ino) {
+    return fail('ROOT_IDENTITY_MISMATCH', ERROR_MESSAGES.rootIdentityMismatch)
+  }
+
+  try {
+    const resolved = await realpath(root.rootPath)
+    if (!pathsEqual(resolved, root.rootPath)) {
+      return fail('ROOT_IDENTITY_MISMATCH', ERROR_MESSAGES.rootIdentityMismatch)
+    }
+  } catch {
+    return fail('ROOT_IDENTITY_MISMATCH', ERROR_MESSAGES.rootIdentityMismatch)
+  }
+
+  return ok(undefined)
+}
+
 async function syncDirectory(directory: string): Promise<void> {
   let handle
   try {
@@ -116,8 +157,10 @@ async function validateManagementDirectory(directory: string): Promise<Result<vo
   return ok(undefined)
 }
 
-async function ensureManagementDirectory(rootPath: string): Promise<Result<ProjectPaths>> {
-  const paths = pathsFor(rootPath)
+async function ensureManagementDirectory(root: AuthorizedRoot): Promise<Result<ProjectPaths>> {
+  const rootCheck = await checkAuthorizedRoot(root)
+  if (!rootCheck.ok) return rootCheck
+  const paths = pathsFor(root.rootPath)
 
   let directoryStats
   try {
@@ -130,6 +173,10 @@ async function ensureManagementDirectory(rootPath: string): Promise<Result<Proje
       )
     }
 
+    // 真正 mkdir 前再次复核根身份，避免用启动时的旧结果直接写盘。
+    const beforeMkdir = await checkAuthorizedRoot(root)
+    if (!beforeMkdir.ok) return beforeMkdir
+
     try {
       await mkdir(paths.directory, { mode: 0o700 })
     } catch (mkdirError) {
@@ -140,22 +187,28 @@ async function ensureManagementDirectory(rootPath: string): Promise<Result<Proje
           : ERROR_MESSAGES.metadataWriteFailed
       )
     }
+
+    const afterMkdir = await checkAuthorizedRoot(root)
+    if (!afterMkdir.ok) return afterMkdir
   }
 
-  if (directoryStats) {
-    const validation = await validateManagementDirectory(paths.directory)
-    if (!validation.ok) return validation
-  } else {
-    const validation = await validateManagementDirectory(paths.directory)
-    if (!validation.ok) return validation
-  }
+  void directoryStats
+  const directoryValidation = await validateManagementDirectory(paths.directory)
+  if (!directoryValidation.ok) return directoryValidation
+
+  const finalRootCheck = await checkAuthorizedRoot(root)
+  if (!finalRootCheck.ok) return finalRootCheck
 
   return ok(paths)
 }
 
 async function readMetadataFile(
+  root: AuthorizedRoot,
   paths: ProjectPaths
 ): Promise<Result<LoadProjectResult>> {
+  const rootCheck = await checkAuthorizedRoot(root)
+  if (!rootCheck.ok) return rootCheck
+
   let fileStats
   try {
     fileStats = await lstat(paths.metadataFile)
@@ -192,6 +245,8 @@ async function readMetadataFile(
     await handle?.close()
   }
 
+  const afterRead = await checkAuthorizedRoot(root)
+  if (!afterRead.ok) return afterRead
   const directoryValidation = await validateManagementDirectory(paths.directory)
   if (!directoryValidation.ok) return directoryValidation
 
@@ -224,7 +279,10 @@ async function readMetadataFile(
   return ok({ status: 'loaded', project: parsed })
 }
 
-async function acquireLock(paths: ProjectPaths): Promise<Result<void>> {
+async function acquireLock(root: AuthorizedRoot, paths: ProjectPaths): Promise<Result<void>> {
+  const rootCheck = await checkAuthorizedRoot(root)
+  if (!rootCheck.ok) return rootCheck
+
   const lockInfo: LockInfo = {
     pid: process.pid,
     hostname: hostname(),
@@ -248,6 +306,9 @@ async function acquireLock(paths: ProjectPaths): Promise<Result<void>> {
 
       const stale = await isStaleLock(paths.lockFile)
       if (stale) {
+        // 删除陈旧锁前再次确认根身份，避免在已替换的根外删除内容。
+        const beforeUnlink = await checkAuthorizedRoot(root)
+        if (!beforeUnlink.ok) return beforeUnlink
         try {
           await unlink(paths.lockFile)
         } catch {
@@ -292,7 +353,11 @@ async function isStaleLock(lockFile: string): Promise<boolean> {
   }
 }
 
-async function releaseLock(paths: ProjectPaths): Promise<void> {
+async function releaseLock(root: AuthorizedRoot, paths: ProjectPaths): Promise<void> {
+  // 根身份已变化时不再删除锁文件，避免误删根外内容；宁可留下锁文件。
+  const rootCheck = await checkAuthorizedRoot(root)
+  if (!rootCheck.ok) return
+
   try {
     await unlink(paths.lockFile)
   } catch {
@@ -301,9 +366,13 @@ async function releaseLock(paths: ProjectPaths): Promise<void> {
 }
 
 async function writeMetadataAtomically(
+  root: AuthorizedRoot,
   paths: ProjectPaths,
   project: ProjectMetadata
 ): Promise<Result<ProjectMetadata>> {
+  const beforeWrite = await checkAuthorizedRoot(root)
+  if (!beforeWrite.ok) return beforeWrite
+
   const tempPath = join(paths.directory, `.project-${randomUUID()}.tmp`)
   let handle
   let renamed = false
@@ -333,6 +402,10 @@ async function writeMetadataAtomically(
     const directoryValidation = await validateManagementDirectory(paths.directory)
     if (!directoryValidation.ok) return directoryValidation
 
+    // rename 前最后复核根身份与授权目录。
+    const beforeRename = await checkAuthorizedRoot(root)
+    if (!beforeRename.ok) return beforeRename
+
     await rename(tempPath, paths.metadataFile)
     renamed = true
     await syncDirectory(paths.directory)
@@ -345,10 +418,13 @@ async function writeMetadataAtomically(
   } finally {
     await handle?.close()
     if (!renamed) {
-      try {
-        await unlink(tempPath)
-      } catch {
-        // 清理临时文件失败不改变主结果。
+      const stillAuthorized = await checkAuthorizedRoot(root)
+      if (stillAuthorized.ok) {
+        try {
+          await unlink(tempPath)
+        } catch {
+          // 清理临时文件失败不改变主结果。
+        }
       }
     }
   }
@@ -356,8 +432,10 @@ async function writeMetadataAtomically(
 
 /** 项目元数据唯一写入入口：schema 校验、原子 rename、lockfile 单写者。 */
 export class ProjectMetadataStore {
-  async loadProject(rootPath: string): Promise<Result<LoadProjectResult>> {
-    const paths = pathsFor(rootPath)
+  async loadProject(root: AuthorizedRoot): Promise<Result<LoadProjectResult>> {
+    const paths = pathsFor(root.rootPath)
+    const rootCheck = await checkAuthorizedRoot(root)
+    if (!rootCheck.ok) return rootCheck
 
     let directoryStats
     try {
@@ -374,36 +452,39 @@ export class ProjectMetadataStore {
       return fail('PATH_OUTSIDE_ROOT', ERROR_MESSAGES.managementSymlink)
     }
 
+    const afterDirectoryCheck = await checkAuthorizedRoot(root)
+    if (!afterDirectoryCheck.ok) return afterDirectoryCheck
+
     const directoryValidation = await validateManagementDirectory(paths.directory)
     if (!directoryValidation.ok) return directoryValidation
 
-    return readMetadataFile(paths)
+    return readMetadataFile(root, paths)
   }
 
-  async getState(rootPath: string): Promise<Result<ProjectMetadataState>> {
-    const loaded = await this.loadProject(rootPath)
+  async getState(root: AuthorizedRoot): Promise<Result<ProjectMetadataState>> {
+    const loaded = await this.loadProject(root)
     if (!loaded.ok) return loaded
     if (loaded.value.status === 'none') return ok({ status: 'none' })
     return ok({ status: 'loaded', summary: summarize(loaded.value.project) })
   }
 
   /** 仅在用户主动点击初始化时调用；已有有效元数据时返回 existing，不覆盖。 */
-  async initializeProject(rootPath: string): Promise<Result<InitializeProjectOutcome>> {
-    const existing = await this.loadProject(rootPath)
+  async initializeProject(root: AuthorizedRoot): Promise<Result<InitializeProjectOutcome>> {
+    const existing = await this.loadProject(root)
     if (!existing.ok) return existing
     if (existing.value.status === 'loaded') {
       return ok({ status: 'existing', summary: summarize(existing.value.project) })
     }
 
-    const ensured = await ensureManagementDirectory(rootPath)
+    const ensured = await ensureManagementDirectory(root)
     if (!ensured.ok) return ensured
     const paths = ensured.value
 
-    const locked = await acquireLock(paths)
+    const locked = await acquireLock(root, paths)
     if (!locked.ok) return locked
 
     try {
-      const recheck = await this.loadProject(rootPath)
+      const recheck = await this.loadProject(root)
       if (!recheck.ok) return recheck
       if (recheck.value.status === 'loaded') {
         return ok({ status: 'existing', summary: summarize(recheck.value.project) })
@@ -411,18 +492,18 @@ export class ProjectMetadataStore {
 
       const project = createInitialProjectMetadata({
         projectId: `project-${randomUUID()}`,
-        name: basename(rootPath)
+        name: basename(root.rootPath)
       })
 
       if (!validateProjectMetadata(project)) {
         return fail('INTERNAL_ERROR', ERROR_MESSAGES.metadataWriteFailed)
       }
 
-      const written = await writeMetadataAtomically(paths, project)
+      const written = await writeMetadataAtomically(root, paths, project)
       if (!written.ok) return written
       return ok({ status: 'created', summary: summarize(written.value) })
     } finally {
-      await releaseLock(paths)
+      await releaseLock(root, paths)
     }
   }
 
@@ -432,7 +513,7 @@ export class ProjectMetadataStore {
    * 当前 M2 暂未通过 IPC 暴露更新操作，此方法用于数据层约束与后续分类写回。
    */
   async writeProject(
-    rootPath: string,
+    root: AuthorizedRoot,
     nextProject: ProjectMetadata,
     expectedRevision: number | null
   ): Promise<Result<ProjectMetadata>> {
@@ -440,22 +521,22 @@ export class ProjectMetadataStore {
       return fail('PROJECT_METADATA_INVALID', ERROR_MESSAGES.metadataInvalid)
     }
 
-    const ensured = await ensureManagementDirectory(rootPath)
+    const ensured = await ensureManagementDirectory(root)
     if (!ensured.ok) return ensured
     const paths = ensured.value
 
-    const locked = await acquireLock(paths)
+    const locked = await acquireLock(root, paths)
     if (!locked.ok) return locked
 
     try {
-      const current = await readMetadataFile(paths)
+      const current = await readMetadataFile(root, paths)
       if (!current.ok) return current
 
       if (current.value.status === 'none') {
         if (expectedRevision !== null) {
           return fail('REVISION_CONFLICT', ERROR_MESSAGES.revisionConflict)
         }
-        return writeMetadataAtomically(paths, nextProject)
+        return writeMetadataAtomically(root, paths, nextProject)
       }
 
       if (expectedRevision === null) {
@@ -468,9 +549,9 @@ export class ProjectMetadataStore {
         return fail('REVISION_CONFLICT', ERROR_MESSAGES.revisionConflict)
       }
 
-      return writeMetadataAtomically(paths, nextProject)
+      return writeMetadataAtomically(root, paths, nextProject)
     } finally {
-      await releaseLock(paths)
+      await releaseLock(root, paths)
     }
   }
 }

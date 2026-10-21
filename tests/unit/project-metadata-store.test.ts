@@ -2,11 +2,13 @@ import { createHash } from 'node:crypto'
 import { hostname } from 'node:os'
 import {
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
   realpath,
+  rename,
   rm,
   symlink,
   writeFile
@@ -15,7 +17,10 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ProjectMetadata } from '../../src/domain/project-metadata'
-import { ProjectMetadataStore } from '../../src/main/services/project-metadata-store'
+import {
+  ProjectMetadataStore,
+  type AuthorizedRoot
+} from '../../src/main/services/project-metadata-store'
 import { ERROR_MESSAGES } from '../../src/shared/result'
 
 const tempRoots: string[] = []
@@ -25,6 +30,29 @@ async function createTempRoot(prefix = 'folio-metadata-'): Promise<string> {
   const root = await realpath(await mkdtemp(join(tmpdir(), prefix)))
   tempRoots.push(root)
   return root
+}
+
+async function authorizedRoot(rootPath: string): Promise<AuthorizedRoot> {
+  const stats = await lstat(rootPath)
+  return { rootPath, identity: { dev: stats.dev, ino: stats.ino } }
+}
+
+/** 递归记录内容哈希，用于证明被拒绝的操作没有在目标目录写入。 */
+async function snapshotTree(root: string): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  async function walk(directory: string, prefix: string): Promise<void> {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name
+      const absolutePath = join(directory, entry.name)
+      if (entry.isDirectory()) await walk(absolutePath, relativePath)
+      else if (entry.isFile()) {
+        const content = await readFile(absolutePath)
+        result.set(relativePath, createHash('sha256').update(content).digest('hex'))
+      }
+    }
+  }
+  await walk(root, '')
+  return result
 }
 
 afterEach(async () => {
@@ -106,7 +134,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     const businessBefore = await writeBusinessFiles(root)
     const store = new ProjectMetadataStore()
 
-    const result = await store.initializeProject(root)
+    const result = await store.initializeProject(await authorizedRoot(root))
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -128,11 +156,11 @@ describe('ProjectMetadataStore.initializeProject', () => {
   it('重复初始化不覆盖已有项目', async () => {
     const root = await createTempRoot()
     const store = new ProjectMetadataStore()
-    const first = await store.initializeProject(root)
+    const first = await store.initializeProject(await authorizedRoot(root))
     if (!first.ok) throw new Error('首次初始化失败')
     const before = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
 
-    const second = await store.initializeProject(root)
+    const second = await store.initializeProject(await authorizedRoot(root))
     const after = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
 
     expect(second.ok).toBe(true)
@@ -148,7 +176,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     await writeMetadata(root, sample)
 
     const reopened = new ProjectMetadataStore()
-    const state = await reopened.getState(root)
+    const state = await reopened.getState(await authorizedRoot(root))
 
     expect(state.ok).toBe(true)
     if (!state.ok) return
@@ -166,7 +194,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
       }
     })
 
-    const loaded = await reopened.loadProject(root)
+    const loaded = await reopened.loadProject(await authorizedRoot(root))
     expect(loaded.ok).toBe(true)
     if (!loaded.ok || loaded.value.status !== 'loaded') return
     expect(loaded.value.project.files[0]).toMatchObject({
@@ -186,7 +214,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     const before = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
     const store = new ProjectMetadataStore()
 
-    const result = await store.initializeProject(root)
+    const result = await store.initializeProject(await authorizedRoot(root))
     const after = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
 
     expect(result.ok).toBe(false)
@@ -202,7 +230,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     const before = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
     const store = new ProjectMetadataStore()
 
-    const result = await store.initializeProject(root)
+    const result = await store.initializeProject(await authorizedRoot(root))
     const after = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
 
     expect(result.ok).toBe(false)
@@ -216,7 +244,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     await writeMetadata(root, { schemaVersion: 1, projectId: 'x' })
     const store = new ProjectMetadataStore()
 
-    const result = await store.loadProject(root)
+    const result = await store.loadProject(await authorizedRoot(root))
 
     expect(result.ok).toBe(false)
     if (result.ok) return
@@ -229,7 +257,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     await symlink(outside, join(root, '.docwork'))
     const store = new ProjectMetadataStore()
 
-    const result = await store.initializeProject(root)
+    const result = await store.initializeProject(await authorizedRoot(root))
 
     expect(result.ok).toBe(false)
     if (result.ok) return
@@ -248,7 +276,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     const before = await readFile(outsideFile, 'utf8')
     const store = new ProjectMetadataStore()
 
-    const result = await store.initializeProject(root)
+    const result = await store.initializeProject(await authorizedRoot(root))
     const after = await readFile(outsideFile, 'utf8')
 
     expect(result.ok).toBe(false)
@@ -267,7 +295,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     )
     const store = new ProjectMetadataStore()
 
-    const result = await store.initializeProject(root)
+    const result = await store.initializeProject(await authorizedRoot(root))
 
     expect(result.ok).toBe(false)
     if (result.ok) return
@@ -283,7 +311,7 @@ describe('ProjectMetadataStore.initializeProject', () => {
     const store = new ProjectMetadataStore()
 
     try {
-      const result = await store.initializeProject(root)
+      const result = await store.initializeProject(await authorizedRoot(root))
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(['PERMISSION_DENIED', 'INTERNAL_ERROR']).toContain(result.error.code)
@@ -298,13 +326,13 @@ describe('ProjectMetadataStore.writeProject', () => {
   it('revision 冲突被拒绝且不修改文件', async () => {
     const root = await createTempRoot()
     const store = new ProjectMetadataStore()
-    const initialized = await store.initializeProject(root)
+    const initialized = await store.initializeProject(await authorizedRoot(root))
     if (!initialized.ok) throw new Error('初始化失败')
     const original = await readMetadata(root)
     const before = await readFile(join(root, '.docwork', 'project.json'), 'utf8')
 
     const conflict = await store.writeProject(
-      root,
+      await authorizedRoot(root),
       { ...original, revision: 2, name: '改名' },
       99
     )
@@ -319,12 +347,12 @@ describe('ProjectMetadataStore.writeProject', () => {
   it('匹配 revision 后原子写入 revision+1', async () => {
     const root = await createTempRoot()
     const store = new ProjectMetadataStore()
-    const initialized = await store.initializeProject(root)
+    const initialized = await store.initializeProject(await authorizedRoot(root))
     if (!initialized.ok) throw new Error('初始化失败')
     const original = await readMetadata(root)
 
     const written = await store.writeProject(
-      root,
+      await authorizedRoot(root),
       { ...original, revision: 2, name: '新名字' },
       1
     )
@@ -333,5 +361,92 @@ describe('ProjectMetadataStore.writeProject', () => {
     const reread = await readMetadata(root)
     expect(reread.revision).toBe(2)
     expect(reread.name).toBe('新名字')
+  })
+})
+
+describe('ProjectMetadataStore 授权根身份复核', () => {
+  it('根目录被移走并替换为根外符号链接时拒绝，且不在根外创建任何内容', async () => {
+    const base = await createTempRoot('folio-root-auth-')
+    const root = join(base, 'project')
+    await mkdir(root)
+    await writeBusinessFiles(root)
+    const authorized = await authorizedRoot(root)
+
+    const movedRoot = join(base, 'moved-project')
+    await rename(root, movedRoot)
+    const outside = await createTempRoot('folio-outside-')
+    await symlink(outside, root)
+
+    const before = await snapshotTree(outside)
+    const store = new ProjectMetadataStore()
+    const loaded = await store.loadProject(authorized)
+    const initialized = await store.initializeProject(authorized)
+    const written = await store.writeProject(authorized, createSampleProject(), null)
+    const after = await snapshotTree(outside)
+
+    for (const result of [loaded, initialized, written]) {
+      expect(result.ok).toBe(false)
+      if (result.ok) continue
+      expect(result.error.code).toBe('ROOT_IDENTITY_MISMATCH')
+      expect(result.error.message).toBe(ERROR_MESSAGES.rootIdentityMismatch)
+    }
+    expect(after).toEqual(before)
+    await expect(lstat(join(outside, '.docwork'))).rejects.toThrow()
+    await expect(lstat(join(movedRoot, '.docwork'))).rejects.toThrow()
+  })
+
+  it('根目录被换成另一个普通目录时拒绝，且不修改新目录', async () => {
+    const base = await createTempRoot('folio-root-auth-')
+    const root = join(base, 'project')
+    await mkdir(root)
+    await writeBusinessFiles(root)
+    const authorized = await authorizedRoot(root)
+
+    const movedRoot = join(base, 'moved-project')
+    await rename(root, movedRoot)
+    await mkdir(root)
+    await writeFile(join(root, 'placeholder.txt'), 'unauthorized', 'utf8')
+    const before = await snapshotTree(root)
+
+    const store = new ProjectMetadataStore()
+    const initialized = await store.initializeProject(authorized)
+    const written = await store.writeProject(authorized, createSampleProject(), null)
+    const after = await snapshotTree(root)
+
+    for (const result of [initialized, written]) {
+      expect(result.ok).toBe(false)
+      if (result.ok) continue
+      expect(result.error.code).toBe('ROOT_IDENTITY_MISMATCH')
+    }
+    expect(after).toEqual(before)
+    await expect(lstat(join(root, '.docwork'))).rejects.toThrow()
+    await expect(lstat(join(movedRoot, '.docwork'))).rejects.toThrow()
+  })
+
+  it('祖先目录被替换后根路径指向根外目录时拒绝，且根外目录保持不变', async () => {
+    const base = await createTempRoot('folio-root-auth-')
+    const authorizedParent = join(base, 'authorized-parent')
+    const root = join(authorizedParent, 'project')
+    await mkdir(root, { recursive: true })
+    await writeBusinessFiles(root)
+    const authorized = await authorizedRoot(root)
+
+    const outsideParent = await createTempRoot('folio-outside-')
+    await mkdir(join(outsideParent, 'project'))
+    await writeFile(join(outsideParent, 'project', 'outside.txt'), 'outside', 'utf8')
+    const before = await snapshotTree(outsideParent)
+
+    await rename(authorizedParent, join(base, 'original-parent'))
+    await symlink(outsideParent, authorizedParent)
+
+    const store = new ProjectMetadataStore()
+    const initialized = await store.initializeProject(authorized)
+    const after = await snapshotTree(outsideParent)
+
+    expect(initialized.ok).toBe(false)
+    if (initialized.ok) return
+    expect(initialized.error.code).toBe('ROOT_IDENTITY_MISMATCH')
+    expect(after).toEqual(before)
+    await expect(lstat(join(outsideParent, 'project', '.docwork'))).rejects.toThrow()
   })
 })

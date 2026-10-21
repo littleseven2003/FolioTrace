@@ -14,6 +14,7 @@ export type FolioErrorCode =
   | 'UNSUPPORTED_SCHEMA'
   | 'PROJECT_LOCKED'
   | 'REVISION_CONFLICT'
+  | 'ROOT_IDENTITY_MISMATCH'
 
 export interface FolioError {
   code: FolioErrorCode
@@ -38,7 +39,8 @@ export const ERROR_MESSAGES = {
   managementSymlink: '管理目录或元数据文件是符号链接，已拒绝访问。',
   projectLocked: '项目正被另一个文脉实例写入，请稍后重试。',
   revisionConflict: '项目数据已被其他操作更新，请重新读取后再试。',
-  metadataWriteFailed: '写入项目元数据失败，请检查权限后重试。'
+  metadataWriteFailed: '写入项目元数据失败，请检查权限后重试。',
+  rootIdentityMismatch: '项目根目录已变化，请重新选择文件夹。'
 } as const
 
 export function ok<T>(value: T): Result<T> {

@@ -15,7 +15,7 @@ import type {
 } from '../../shared/files'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import { ERROR_MESSAGES, fail, ok, type Result } from '../../shared/result'
-import type { ProjectMetadataStore } from '../services/project-metadata-store'
+import type { ProjectMetadataStore, AuthorizedRoot } from '../services/project-metadata-store'
 import type { ProjectRegistry } from '../services/project-registry'
 import { scanAuthorizedProject } from '../services/project-service'
 import type { ProjectRepository } from '../services/project-repository'
@@ -43,15 +43,18 @@ function validateHandle(handle: unknown): Result<string> {
   return ok(handle)
 }
 
-function resolveProjectRoot(
+function resolveAuthorizedProject(
   handle: string,
   projectRegistry: ProjectRegistry
-): Result<string> {
+): Result<AuthorizedRoot> {
   const resolved = projectRegistry.resolve(handle)
   if (!resolved.ok) {
     return fail(resolved.error.code, resolved.error.message)
   }
-  return ok(resolved.value.rootPath)
+  return ok({
+    rootPath: resolved.value.rootPath,
+    identity: resolved.value.rootIdentity
+  })
 }
 
 async function chooseProject(
@@ -123,7 +126,7 @@ export function registerIpcHandlers({
       }
       const handleCheck = validateHandle(handle)
       if (!handleCheck.ok) return handleCheck
-      const rootCheck = resolveProjectRoot(handleCheck.value, projectRegistry)
+      const rootCheck = resolveAuthorizedProject(handleCheck.value, projectRegistry)
       if (!rootCheck.ok) return rootCheck
       return metadataStore.getState(rootCheck.value)
     }
@@ -138,7 +141,7 @@ export function registerIpcHandlers({
       }
       const handleCheck = validateHandle(handle)
       if (!handleCheck.ok) return handleCheck
-      const rootCheck = resolveProjectRoot(handleCheck.value, projectRegistry)
+      const rootCheck = resolveAuthorizedProject(handleCheck.value, projectRegistry)
       if (!rootCheck.ok) return rootCheck
       return metadataStore.initializeProject(rootCheck.value)
     }
@@ -153,7 +156,9 @@ export function registerIpcHandlers({
       }
       const handleCheck = validateHandle(handle)
       if (!handleCheck.ok) return handleCheck
-      return scanAuthorizedProject(handleCheck.value, projectRegistry)
+      const rootCheck = resolveAuthorizedProject(handleCheck.value, projectRegistry)
+      if (!rootCheck.ok) return rootCheck
+      return scanAuthorizedProject(rootCheck.value.rootPath, projectRegistry)
     }
   )
 }
