@@ -721,3 +721,113 @@ describe('全部文件目录视图与路径搜索', () => {
     expect(screen.queryByText(FILE_A.relativePath)).not.toBeInTheDocument()
   })
 })
+
+describe('搜索期间的临时展开与服务状态隔离', () => {
+  const ROOT_MD = makeTreeFile('报告.md', 'MD', 'text')
+  const COVER = makeTreeFile('images/封面.png', 'PNG', 'image')
+  const FIGURE = makeTreeFile('images/figures/架构.svg', 'SVG', 'image')
+  const VIDEO = makeTreeFile('media/演示视频.mp4', 'MP4', 'other')
+  const FILES = [ROOT_MD, COVER, FIGURE, VIDEO]
+
+  function makeTreeFile(
+    relativePath: string,
+    type: string,
+    category: ProjectFileEntry['category']
+  ): ProjectFileEntry {
+    return {
+      relativePath,
+      type,
+      category,
+      sizeBytes: 1,
+      modifiedAt: '2026-10-20T06:00:00.000Z',
+      classification: 'unclassified'
+    }
+  }
+
+  async function openSearchTree(classifyProjectFile = vi.fn()) {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    installFolioMock({
+      chooseProject,
+      scanProject: vi.fn().mockResolvedValue(ok(makeScan(FILES))),
+      getProjectMetadata: vi.fn().mockResolvedValue(
+        ok({
+          status: 'loaded' as const,
+          summary: { ...SUMMARY, revision: 2, fileCount: 0 },
+          files: []
+        })
+      ),
+      classifyProjectFile
+    })
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await screen.findByRole('button', { name: /^images，/ })
+    return { user, classifyProjectFile }
+  }
+
+  it('搜索期间祖先箭头与 aria-expanded 跟随可见行，并禁用折叠', async () => {
+    const { user, classifyProjectFile } = await openSearchTree()
+    const search = screen.getByRole('searchbox', { name: '按完整相对路径搜索' })
+
+    await user.type(search, 'figures/架构')
+
+    const imagesToggle = screen.getByRole('button', { name: /^images，/ })
+    const figuresToggle = screen.getByRole('button', { name: /^images\/figures，/ })
+    expect(imagesToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(figuresToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(imagesToggle).toBeDisabled()
+    expect(figuresToggle).toBeDisabled()
+    expect(imagesToggle).toHaveTextContent('▾')
+    expect(screen.getByText(FIGURE.relativePath)).toBeInTheDocument()
+
+    await user.click(imagesToggle)
+    expect(imagesToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(FIGURE.relativePath)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '清除搜索' }))
+    expect(screen.getByRole('button', { name: /^images，/ })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.getByRole('button', { name: /^images，/ })).toHaveTextContent('▸')
+    expect(screen.queryByText(FIGURE.relativePath)).not.toBeInTheDocument()
+    expect(classifyProjectFile).not.toHaveBeenCalled()
+  })
+
+  it('搜索期间切换平铺再返回，清除后恢复搜索前的普通展开状态', async () => {
+    const { user, classifyProjectFile } = await openSearchTree()
+
+    const mediaToggle = screen.getByRole('button', { name: /^media，/ })
+    await user.click(mediaToggle)
+    expect(mediaToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(VIDEO.relativePath)).toBeInTheDocument()
+
+    const search = screen.getByRole('searchbox', { name: '按完整相对路径搜索' })
+    await user.type(search, 'figures/架构')
+    expect(screen.getByRole('button', { name: /^images，/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+
+    await user.click(screen.getByRole('button', { name: '平铺' }))
+    expect(screen.getByText(FIGURE.relativePath)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^images，/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '目录' }))
+    expect(screen.getByRole('button', { name: /^images，/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+
+    await user.click(screen.getByRole('button', { name: '清除搜索' }))
+    expect(screen.getByRole('button', { name: /^images，/ })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.getByRole('button', { name: /^media，/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByText(VIDEO.relativePath)).toBeInTheDocument()
+    expect(classifyProjectFile).not.toHaveBeenCalled()
+  })
+})

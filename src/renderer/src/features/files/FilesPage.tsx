@@ -23,22 +23,29 @@ interface FilesPageProps {
 interface DirectoryRowProps {
   row: Extract<FileTreeRow, { kind: 'directory' }>
   expanded: boolean
+  searching: boolean
   onToggle: (path: string) => void
 }
 
-function DirectoryRow({ row, expanded, onToggle }: DirectoryRowProps): JSX.Element {
+function DirectoryRow({ row, expanded, searching, onToggle }: DirectoryRowProps): JSX.Element {
+  // 搜索期间命中祖先临时展开：箭头与 aria-expanded 必须跟随实际可见行，
+  // 并禁用折叠，避免搜索点击改写清除搜索后应恢复的普通展开状态。
+  const visibleExpanded = searching || expanded
+
   return (
     <tr className="file-row-directory">
       <td style={{ paddingLeft: `${16 + row.depth * 18}px` }}>
         <button
           type="button"
           className="file-tree-toggle"
-          aria-expanded={expanded}
+          aria-expanded={visibleExpanded}
           aria-label={`${row.path}，目录，${row.fileCount} 个文件`}
+          disabled={searching}
+          title={searching ? '搜索期间目录保持展开' : undefined}
           onClick={() => onToggle(row.path)}
         >
           <span className="file-tree-chevron" aria-hidden="true">
-            {expanded ? '▾' : '▸'}
+            {visibleExpanded ? '▾' : '▸'}
           </span>
           <span className="file-path file-tree-path">{row.path}</span>
           <span className="file-tree-count">{row.fileCount} 个文件</span>
@@ -355,6 +362,7 @@ export function FilesPage({
                                 key={`dir:${row.path}`}
                                 row={row}
                                 expanded={treeView.expanded.has(row.path)}
+                                searching={searching}
                                 onToggle={treeView.toggleDirectory}
                               />
                             ) : (
