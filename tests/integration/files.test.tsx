@@ -77,6 +77,7 @@ function installFolioMock(overrides: Record<string, unknown> = {}): void {
     scanProject: vi.fn().mockResolvedValue(ok(makeScan([]))),
     getProjectMetadata: vi.fn().mockResolvedValue(ok({ status: 'none' })),
     initializeProject: vi.fn().mockResolvedValue(ok({ status: 'created', summary: SUMMARY })),
+    classifyProjectFile: vi.fn(),
     ...overrides
   }
 
@@ -222,7 +223,12 @@ describe('全部文件与目录选择', () => {
     const chooseProject = vi
       .fn()
       .mockResolvedValue(ok({ canceled: false, project: PROJECT }))
-    const getProjectMetadata = vi.fn().mockResolvedValue(ok({ status: 'none' }))
+    const getProjectMetadata = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ status: 'none' }))
+      .mockResolvedValue(
+        ok({ status: 'loaded', summary: { ...SUMMARY, revision: 1 }, files: [] })
+      )
     const initializeProject = vi
       .fn()
       .mockResolvedValue(ok({ status: 'created', summary: SUMMARY }))
@@ -246,7 +252,9 @@ describe('全部文件与目录选择', () => {
       .mockResolvedValue(ok({ canceled: false, project: PROJECT }))
     const getProjectMetadata = vi
       .fn()
-      .mockResolvedValue(ok({ status: 'loaded', summary: { ...SUMMARY, revision: 4, fileCount: 2 } }))
+      .mockResolvedValue(
+        ok({ status: 'loaded', summary: { ...SUMMARY, revision: 4, fileCount: 2 }, files: [] })
+      )
     installFolioMock({ chooseProject, getProjectMetadata })
 
     const user = await openFilesPage()
@@ -278,5 +286,159 @@ describe('全部文件与目录选择', () => {
     expect(
       within(alert).getByRole('button', { name: '重新读取元数据' })
     ).toBeInTheDocument()
+  })
+})
+
+describe('文件用途分类', () => {
+  const SAVED_FILE = {
+    id: 'file-1',
+    relativePath: '报告/初稿.docx',
+    role: 'reference' as const,
+    sha256: 'a'.repeat(64)
+  }
+
+  function loadedMetadata(files: unknown[] = [], revision = 1) {
+    return ok({
+      status: 'loaded' as const,
+      summary: { ...SUMMARY, revision, fileCount: files.length },
+      files
+    })
+  }
+
+  it('已初始化项目可在全部文件页保存用途并更新 revision', async () => {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi.fn().mockResolvedValue(loadedMetadata())
+    const classifyProjectFile = vi.fn().mockResolvedValue(
+      ok({ file: SAVED_FILE, revision: 2, contentChanged: false })
+    )
+    installFolioMock({
+      chooseProject,
+      getProjectMetadata,
+      classifyProjectFile,
+      scanProject: vi.fn().mockResolvedValue(ok(makeScan([FILE_A])))
+    })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
+    if (!row) throw new Error('未找到文件行')
+    const select = within(row).getByRole('combobox', { name: '报告/初稿.docx 的用途' })
+
+    expect(select).toHaveValue('unclassified')
+    await user.selectOptions(select, 'reference')
+
+    expect(classifyProjectFile).toHaveBeenCalledWith('project-test', {
+      relativePath: '报告/初稿.docx',
+      role: 'reference',
+      expectedRevision: 1
+    })
+    expect(await screen.findByText(/已保存“参考资料”（revision 2）/)).toBeInTheDocument()
+    expect(select).toHaveValue('reference')
+    expect(screen.getByText(/revision 2 · 文件记录 1/)).toBeInTheDocument()
+  })
+
+  it('未初始化项目保持只读，不提供用途下拉', async () => {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi.fn().mockResolvedValue(ok({ status: 'none' }))
+    installFolioMock({
+      chooseProject,
+      getProjectMetadata,
+      scanProject: vi.fn().mockResolvedValue(ok(makeScan([FILE_A])))
+    })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await screen.findByText('报告/初稿.docx')
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.getByText('未分类')).toBeInTheDocument()
+  })
+
+  it('重新扫描不会清空已保存用途', async () => {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi
+      .fn()
+      .mockResolvedValue(loadedMetadata([SAVED_FILE], 2))
+    const scanProject = vi
+      .fn()
+      .mockResolvedValueOnce(ok(makeScan([FILE_A])))
+      .mockResolvedValueOnce(ok(makeScan([FILE_A, FILE_B])))
+    installFolioMock({ chooseProject, getProjectMetadata, scanProject })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
+    if (!row) throw new Error('未找到文件行')
+    expect(within(row).getByRole('combobox')).toHaveValue('reference')
+
+    await user.click(screen.getByRole('button', { name: '重新扫描' }))
+
+    expect(await screen.findByText('notes.md')).toBeInTheDocument()
+    const refreshedRow = screen.getByText('报告/初稿.docx').closest('tr')
+    if (!refreshedRow) throw new Error('未找到文件行')
+    expect(within(refreshedRow).getByRole('combobox')).toHaveValue('reference')
+    expect(getProjectMetadata).toHaveBeenCalledTimes(1)
+  })
+
+  it('revision 冲突时提示重新读取，不静默覆盖', async () => {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi
+      .fn()
+      .mockResolvedValueOnce(loadedMetadata([SAVED_FILE], 2))
+      .mockResolvedValueOnce(
+        loadedMetadata([{ ...SAVED_FILE, role: 'output' }], 3)
+      )
+    const classifyProjectFile = vi
+      .fn()
+      .mockResolvedValue(fail('REVISION_CONFLICT', ERROR_MESSAGES.revisionConflict))
+    installFolioMock({
+      chooseProject,
+      getProjectMetadata,
+      classifyProjectFile,
+      scanProject: vi.fn().mockResolvedValue(ok(makeScan([FILE_A])))
+    })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
+    if (!row) throw new Error('未找到文件行')
+    await user.selectOptions(within(row).getByRole('combobox'), 'output')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(ERROR_MESSAGES.revisionConflict)
+    expect(within(row).getByRole('combobox')).toHaveValue('reference')
+
+    await user.click(within(alert).getByRole('button', { name: '重新读取元数据' }))
+
+    expect(getProjectMetadata).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText(/revision 3 · 文件记录 1/)).toBeInTheDocument()
+    const reloadedRow = screen.getByText('报告/初稿.docx').closest('tr')
+    if (!reloadedRow) throw new Error('未找到文件行')
+    expect(within(reloadedRow).getByRole('combobox')).toHaveValue('output')
+  })
+
+  it('内容变化时保存用途并提示保留原指纹', async () => {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const getProjectMetadata = vi
+      .fn()
+      .mockResolvedValue(loadedMetadata([{ ...SAVED_FILE, role: 'process' }], 4))
+    const classifyProjectFile = vi.fn().mockResolvedValue(
+      ok({ file: { ...SAVED_FILE, role: 'output' }, revision: 5, contentChanged: true })
+    )
+    installFolioMock({
+      chooseProject,
+      getProjectMetadata,
+      classifyProjectFile,
+      scanProject: vi.fn().mockResolvedValue(ok(makeScan([FILE_A])))
+    })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
+    if (!row) throw new Error('未找到文件行')
+    await user.selectOptions(within(row).getByRole('combobox'), 'output')
+
+    expect(await screen.findByText(/文件内容已变化，保留上次登记的指纹/)).toBeInTheDocument()
+    expect(within(row).getByRole('combobox')).toHaveValue('output')
   })
 })

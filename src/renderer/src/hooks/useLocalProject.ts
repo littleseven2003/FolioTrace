@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react'
-import type {
-  ProjectMetadataState,
-  ProjectScan,
-  ProjectSummary
+import {
+  FILE_ROLE_LABELS,
+  type FileRole,
+  type ProjectMetadataState,
+  type ProjectScan,
+  type ProjectSummary
 } from '../../../shared/files'
 import { ERROR_MESSAGES } from '../../../shared/result'
 
@@ -14,6 +16,7 @@ export interface LocalProjectState {
   scanning: boolean
   metadataLoading: boolean
   initializing: boolean
+  classifyingPath: string | null
   error: string | null
   metadataError: string | null
   notice: string | null
@@ -24,6 +27,7 @@ export interface LocalProjectActions {
   rescan: () => Promise<void>
   initializeProject: () => Promise<void>
   reloadMetadata: () => Promise<void>
+  classifyFile: (relativePath: string, role: FileRole) => Promise<void>
 }
 
 const INITIAL_STATE: LocalProjectState = {
@@ -34,6 +38,7 @@ const INITIAL_STATE: LocalProjectState = {
   scanning: false,
   metadataLoading: false,
   initializing: false,
+  classifyingPath: null,
   error: null,
   metadataError: null,
   notice: null
@@ -156,10 +161,11 @@ export function useLocalProject(): LocalProjectState & LocalProjectActions {
       }
 
       const summary = result.value.summary
+      // 初始化后重新读取完整元数据（含已登记文件），已有项目不会丢失用途。
+      await loadMetadata(project)
       setState((current) => ({
         ...current,
         initializing: false,
-        metadata: { status: 'loaded', summary, files: [] },
         metadataError: null,
         notice:
           result.value.status === 'created'
@@ -173,12 +179,77 @@ export function useLocalProject(): LocalProjectState & LocalProjectActions {
         metadataError: ERROR_MESSAGES.metadataWriteFailed
       }))
     }
-  }, [state.project])
+  }, [loadMetadata, state.project])
 
   const reloadMetadata = useCallback(async (): Promise<void> => {
     if (!state.project) return
     await loadMetadata(state.project)
   }, [loadMetadata, state.project])
 
-  return { ...state, chooseProject, rescan, initializeProject, reloadMetadata }
+  const classifyFile = useCallback(
+    async (relativePath: string, role: FileRole): Promise<void> => {
+      const project = state.project
+      const metadata = state.metadata
+      if (!project || !metadata || metadata.status !== 'loaded') return
+
+      const expectedRevision = metadata.summary.revision
+      setState((current) => ({ ...current, classifyingPath: relativePath, metadataError: null }))
+      try {
+        const result = await window.folio.classifyProjectFile(project.handle, {
+          relativePath,
+          role,
+          expectedRevision
+        })
+
+        if (!result.ok) {
+          // 冲突或其他写入失败都保留当前展示，提示用户重新读取，不静默覆盖。
+          setState((current) => ({
+            ...current,
+            classifyingPath: null,
+            metadataError: result.error.message,
+            notice: null
+          }))
+          return
+        }
+
+        const outcome = result.value
+        setState((current) => {
+          if (!current.metadata || current.metadata.status !== 'loaded') {
+            return { ...current, classifyingPath: null }
+          }
+          const files = current.metadata.files
+            .filter((file) => file.relativePath !== outcome.file.relativePath)
+            .concat(outcome.file)
+            .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+
+          return {
+            ...current,
+            classifyingPath: null,
+            metadataError: null,
+            metadata: {
+              status: 'loaded',
+              summary: {
+                ...current.metadata.summary,
+                revision: outcome.revision,
+                fileCount: files.length
+              },
+              files
+            },
+            notice: outcome.contentChanged
+              ? '用途已保存；文件内容已变化，保留上次登记的指纹。'
+              : `已保存“${FILE_ROLE_LABELS[outcome.file.role]}”（revision ${outcome.revision}）。`
+          }
+        })
+      } catch {
+        setState((current) => ({
+          ...current,
+          classifyingPath: null,
+          metadataError: ERROR_MESSAGES.metadataWriteFailed
+        }))
+      }
+    },
+    [state.metadata, state.project]
+  )
+
+  return { ...state, chooseProject, rescan, initializeProject, reloadMetadata, classifyFile }
 }

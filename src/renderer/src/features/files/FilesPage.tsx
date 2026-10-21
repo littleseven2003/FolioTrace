@@ -1,6 +1,11 @@
 import type { JSX } from 'react'
 import { FilesIcon } from '../../components/Icons'
 import { formatBytes, formatDateTime } from '../../lib/format'
+import {
+  FILE_ROLE_LABELS,
+  FILE_ROLES,
+  type FileRole
+} from '../../../../shared/files'
 import type { LocalProjectState } from '../../hooks/useLocalProject'
 
 interface FilesPageProps {
@@ -9,6 +14,7 @@ interface FilesPageProps {
   onRescan: () => void
   onInitializeProject: () => void
   onReloadMetadata: () => void
+  onClassifyFile: (relativePath: string, role: FileRole) => void
 }
 
 export function FilesPage({
@@ -16,7 +22,8 @@ export function FilesPage({
   onChooseProject,
   onRescan,
   onInitializeProject,
-  onReloadMetadata
+  onReloadMetadata,
+  onClassifyFile
 }: FilesPageProps): JSX.Element {
   const {
     project,
@@ -26,11 +33,18 @@ export function FilesPage({
     scanning,
     metadataLoading,
     initializing,
+    classifyingPath,
     error,
     metadataError,
     notice
   } = local
   const files = scan?.files ?? []
+  const initialized = metadata?.status === 'loaded'
+  const roleByPath = new Map<string, FileRole>(
+    metadata?.status === 'loaded'
+      ? metadata.files.map((file) => [file.relativePath, file.role])
+      : []
+  )
 
   return (
     <section className="page" aria-labelledby="files-title">
@@ -175,7 +189,7 @@ export function FilesPage({
                         <th scope="col">类型</th>
                         <th scope="col">大小</th>
                         <th scope="col">修改时间</th>
-                        <th scope="col">分类</th>
+                        <th scope="col">用途</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -190,7 +204,25 @@ export function FilesPage({
                           <td className="file-number">{formatBytes(file.sizeBytes)}</td>
                           <td className="file-number">{formatDateTime(file.modifiedAt)}</td>
                           <td>
-                            <span className="badge badge-muted">未分类</span>
+                            {initialized ? (
+                              <select
+                                className="role-select"
+                                aria-label={`${file.relativePath} 的用途`}
+                                value={roleByPath.get(file.relativePath) ?? 'unclassified'}
+                                disabled={classifyingPath !== null}
+                                onChange={(event) =>
+                                  onClassifyFile(file.relativePath, event.target.value as FileRole)
+                                }
+                              >
+                                {FILE_ROLES.map((role) => (
+                                  <option key={role} value={role}>
+                                    {FILE_ROLE_LABELS[role]}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="badge badge-muted">未分类</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -198,7 +230,7 @@ export function FilesPage({
                   </table>
                 </div>
                 <footer className="panel-footer">
-                  <span>未分类文件不会自动加入参考资料。</span>
+                  <span>未分类文件不会自动加入参考资料；用途保存在 .docwork/project.json。</span>
                   <span>扫描只读 · 不写入业务文件</span>
                 </footer>
               </section>

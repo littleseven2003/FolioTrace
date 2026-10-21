@@ -126,6 +126,7 @@ export function App(): JSX.Element {
                 onRescan={() => void local.rescan()}
                 onInitializeProject={() => void local.initializeProject()}
                 onReloadMetadata={() => void local.reloadMetadata()}
+                onClassifyFile={(relativePath, role) => void local.classifyFile(relativePath, role)}
               />
             ) : isLocal && local.project ? (
               <LocalModePage view={view} projectName={local.project.name} />

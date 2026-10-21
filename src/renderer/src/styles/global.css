@@ -589,6 +589,21 @@ a:focus-visible {
   color: var(--amber);
 }
 
+.role-select {
+  min-width: 104px;
+  padding: 5px 8px;
+  border: 1px solid #dce3eb;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 11.5px;
+}
+
+.role-select:disabled {
+  background: #f7f9fc;
+  color: var(--muted);
+}
+
 .badge-muted {
   background: #f0f3f6;
   color: #758394;
