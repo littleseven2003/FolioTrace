@@ -1,12 +1,15 @@
 import type { JSX } from 'react'
-import { FilesIcon } from '../../components/Icons'
-import { formatBytes, formatDateTime } from '../../lib/format'
+import type { FileTreeRow } from '../../../../domain/file-tree'
 import {
   FILE_ROLE_LABELS,
   FILE_ROLES,
-  type FileRole
+  type FileRole,
+  type ProjectFileEntry
 } from '../../../../shared/files'
+import { FilesIcon } from '../../components/Icons'
+import { formatBytes, formatDateTime } from '../../lib/format'
 import type { LocalProjectState } from '../../hooks/useLocalProject'
+import { useFileTreeView, type FileListView } from './useFileTreeView'
 
 interface FilesPageProps {
   local: LocalProjectState
@@ -15,6 +18,120 @@ interface FilesPageProps {
   onInitializeProject: () => void
   onReloadMetadata: () => void
   onClassifyFile: (relativePath: string, role: FileRole) => void
+}
+
+interface DirectoryRowProps {
+  row: Extract<FileTreeRow, { kind: 'directory' }>
+  expanded: boolean
+  onToggle: (path: string) => void
+}
+
+function DirectoryRow({ row, expanded, onToggle }: DirectoryRowProps): JSX.Element {
+  return (
+    <tr className="file-row-directory">
+      <td style={{ paddingLeft: `${16 + row.depth * 18}px` }}>
+        <button
+          type="button"
+          className="file-tree-toggle"
+          aria-expanded={expanded}
+          aria-label={`${row.path}，目录，${row.fileCount} 个文件`}
+          onClick={() => onToggle(row.path)}
+        >
+          <span className="file-tree-chevron" aria-hidden="true">
+            {expanded ? '▾' : '▸'}
+          </span>
+          <span className="file-path file-tree-path">{row.path}</span>
+          <span className="file-tree-count">{row.fileCount} 个文件</span>
+        </button>
+      </td>
+      <td>目录</td>
+      <td className="file-number">—</td>
+      <td className="file-number">—</td>
+      <td>
+        <span className="file-tree-role">—</span>
+      </td>
+    </tr>
+  )
+}
+
+interface FileRowProps {
+  file: ProjectFileEntry
+  depth: number
+  treeMode: boolean
+  initialized: boolean
+  role: FileRole
+  disabled: boolean
+  onClassifyFile: (relativePath: string, role: FileRole) => void
+}
+
+function FileRow({
+  file,
+  depth,
+  treeMode,
+  initialized,
+  role,
+  disabled,
+  onClassifyFile
+}: FileRowProps): JSX.Element {
+  return (
+    <tr>
+      <td style={treeMode ? { paddingLeft: `${16 + depth * 18}px` } : undefined}>
+        <span className="file-path mono">{file.relativePath}</span>
+      </td>
+      <td>
+        <span className="file-type">{file.type}</span>
+      </td>
+      <td className="file-number">{formatBytes(file.sizeBytes)}</td>
+      <td className="file-number">{formatDateTime(file.modifiedAt)}</td>
+      <td>
+        {initialized ? (
+          <select
+            className="role-select"
+            aria-label={`${file.relativePath} 的用途`}
+            value={role}
+            disabled={disabled}
+            onChange={(event) => onClassifyFile(file.relativePath, event.target.value as FileRole)}
+          >
+            {FILE_ROLES.map((option) => (
+              <option key={option} value={option}>
+                {FILE_ROLE_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="badge badge-muted">未分类</span>
+        )}
+      </td>
+    </tr>
+  )
+}
+
+interface ViewSwitchProps {
+  view: FileListView
+  onChange: (view: FileListView) => void
+}
+
+function ViewSwitch({ view, onChange }: ViewSwitchProps): JSX.Element {
+  return (
+    <div className="view-switch" role="group" aria-label="文件视图">
+      <button
+        type="button"
+        className="btn view-switch-btn"
+        aria-pressed={view === 'tree'}
+        onClick={() => onChange('tree')}
+      >
+        目录
+      </button>
+      <button
+        type="button"
+        className="btn view-switch-btn"
+        aria-pressed={view === 'flat'}
+        onClick={() => onChange('flat')}
+      >
+        平铺
+      </button>
+    </div>
+  )
 }
 
 export function FilesPage({
@@ -45,6 +162,9 @@ export function FilesPage({
       ? metadata.files.map((file) => [file.relativePath, file.role])
       : []
   )
+  const treeView = useFileTreeView(files, project?.handle ?? null)
+  const { rows, matchedFiles, totalFiles, searching } = treeView.visible
+  const showNoMatch = files.length > 0 && searching && matchedFiles === 0
 
   return (
     <section className="page" aria-labelledby="files-title">
@@ -102,13 +222,35 @@ export function FilesPage({
         <>
           <div className="files-toolbar">
             <p className="files-summary">
-              共 <strong>{files.length}</strong> 个文件
+              共 <strong>{totalFiles}</strong> 个文件
+              {searching ? ` · 匹配 ${matchedFiles} 个` : ''}
               {scan ? ` · 扫描于 ${formatDateTime(scan.scannedAt)}` : ''}
             </p>
-            <button type="button" className="btn" onClick={onRescan} disabled={scanning}>
-              {scanning ? '正在扫描…' : '重新扫描'}
-            </button>
+            <div className="files-toolbar-actions">
+              <ViewSwitch view={treeView.view} onChange={treeView.setView} />
+              <button type="button" className="btn" onClick={onRescan} disabled={scanning}>
+                {scanning ? '正在扫描…' : '重新扫描'}
+              </button>
+            </div>
           </div>
+
+          {scan && files.length > 0 && (
+            <div className="files-search">
+              <input
+                type="search"
+                className="files-search-input"
+                aria-label="按完整相对路径搜索"
+                placeholder="按完整相对路径搜索，例如 images/封面.png"
+                value={treeView.query}
+                onChange={(event) => treeView.setQuery(event.target.value)}
+              />
+              {searching && (
+                <button type="button" className="btn" onClick={treeView.clearQuery}>
+                  清除搜索
+                </button>
+              )}
+            </div>
+          )}
 
           <section className="panel metadata-panel" aria-label="文脉项目元数据">
             <div className="metadata-panel-head">
@@ -179,7 +321,20 @@ export function FilesPage({
           )}
 
           {scan ? (
-            files.length > 0 ? (
+            files.length === 0 ? (
+              <div className="panel empty-panel">
+                <h2>这个文件夹没有可读取的业务文件</h2>
+                <p>内部管理目录与符号链接不会出现在清单中。</p>
+              </div>
+            ) : showNoMatch ? (
+              <div className="panel empty-panel" role="status" aria-live="polite">
+                <h2>没有匹配的文件</h2>
+                <p>没有完整相对路径包含“{treeView.query.trim()}”的文件。</p>
+                <button type="button" className="btn" onClick={treeView.clearQuery}>
+                  清除搜索
+                </button>
+              </div>
+            ) : (
               <section className="panel file-list-panel" aria-label="文件清单">
                 <div className="file-table-wrap">
                   <table className="file-table">
@@ -193,52 +348,51 @@ export function FilesPage({
                       </tr>
                     </thead>
                     <tbody>
-                      {files.map((file) => (
-                        <tr key={file.relativePath}>
-                          <td>
-                            <span className="file-path mono">{file.relativePath}</span>
-                          </td>
-                          <td>
-                            <span className="file-type">{file.type}</span>
-                          </td>
-                          <td className="file-number">{formatBytes(file.sizeBytes)}</td>
-                          <td className="file-number">{formatDateTime(file.modifiedAt)}</td>
-                          <td>
-                            {initialized ? (
-                              <select
-                                className="role-select"
-                                aria-label={`${file.relativePath} 的用途`}
-                                value={roleByPath.get(file.relativePath) ?? 'unclassified'}
-                                disabled={classifyingPath !== null}
-                                onChange={(event) =>
-                                  onClassifyFile(file.relativePath, event.target.value as FileRole)
-                                }
-                              >
-                                {FILE_ROLES.map((role) => (
-                                  <option key={role} value={role}>
-                                    {FILE_ROLE_LABELS[role]}
-                                  </option>
-                                ))}
-                              </select>
+                      {treeView.view === 'tree'
+                        ? rows.map((row) =>
+                            row.kind === 'directory' ? (
+                              <DirectoryRow
+                                key={`dir:${row.path}`}
+                                row={row}
+                                expanded={treeView.expanded.has(row.path)}
+                                onToggle={treeView.toggleDirectory}
+                              />
                             ) : (
-                              <span className="badge badge-muted">未分类</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                              <FileRow
+                                key={`file:${row.path}`}
+                                file={row.file}
+                                depth={row.depth}
+                                treeMode
+                                initialized={initialized}
+                                role={roleByPath.get(row.path) ?? 'unclassified'}
+                                disabled={classifyingPath !== null}
+                                onClassifyFile={onClassifyFile}
+                              />
+                            )
+                          )
+                        : treeView.flatFiles.map((file) => (
+                            <FileRow
+                              key={`file:${file.relativePath}`}
+                              file={file}
+                              depth={0}
+                              treeMode={false}
+                              initialized={initialized}
+                              role={roleByPath.get(file.relativePath) ?? 'unclassified'}
+                              disabled={classifyingPath !== null}
+                              onClassifyFile={onClassifyFile}
+                            />
+                          ))}
                     </tbody>
                   </table>
                 </div>
                 <footer className="panel-footer">
-                  <span>未分类文件不会自动加入参考资料；用途保存在 .docwork/project.json。</span>
+                  <span>
+                    目录由扫描结果构建，仅作浏览容器，不设置用途；展开或切换视图不会写入
+                    project.json。
+                  </span>
                   <span>扫描只读 · 不写入业务文件</span>
                 </footer>
               </section>
-            ) : (
-              <div className="panel empty-panel">
-                <h2>这个文件夹没有可读取的业务文件</h2>
-                <p>内部管理目录与符号链接不会出现在清单中。</p>
-              </div>
             )
           ) : scanning ? (
             <div className="panel empty-panel" role="status" aria-live="polite">

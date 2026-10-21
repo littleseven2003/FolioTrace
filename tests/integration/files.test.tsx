@@ -96,6 +96,11 @@ async function openFilesPage(): Promise<ReturnType<typeof userEvent.setup>> {
   return user
 }
 
+/** 既有平铺场景显式切到平铺；分目录结构由目录视图测试单独覆盖。 */
+async function switchToFlat(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(await screen.findByRole('button', { name: '平铺' }))
+}
+
 beforeEach(() => {
   installFolioMock()
 })
@@ -124,6 +129,7 @@ describe('全部文件与目录选择', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
 
     expect(await screen.findByText('报告/初稿.docx')).toBeInTheDocument()
     expect(scanProject).toHaveBeenCalledWith('project-test')
@@ -156,6 +162,7 @@ describe('全部文件与目录选择', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
     await screen.findByText('报告/初稿.docx')
 
     await user.click(screen.getByRole('button', { name: '重新扫描' }))
@@ -176,6 +183,7 @@ describe('全部文件与目录选择', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(ERROR_MESSAGES.scanFailed)
@@ -320,6 +328,7 @@ describe('文件用途分类', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
     const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
     if (!row) throw new Error('未找到文件行')
     const select = within(row).getByRole('combobox', { name: '报告/初稿.docx 的用途' })
@@ -348,6 +357,7 @@ describe('文件用途分类', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
     await screen.findByText('报告/初稿.docx')
 
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
@@ -367,6 +377,7 @@ describe('文件用途分类', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
     const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
     if (!row) throw new Error('未找到文件行')
     expect(within(row).getByRole('combobox')).toHaveValue('reference')
@@ -400,6 +411,7 @@ describe('文件用途分类', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
     const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
     if (!row) throw new Error('未找到文件行')
     await user.selectOptions(within(row).getByRole('combobox'), 'output')
@@ -434,11 +446,278 @@ describe('文件用途分类', () => {
 
     const user = await openFilesPage()
     await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await switchToFlat(user)
     const row = (await screen.findByText('报告/初稿.docx')).closest('tr')
     if (!row) throw new Error('未找到文件行')
     await user.selectOptions(within(row).getByRole('combobox'), 'output')
 
     expect(await screen.findByText(/文件内容已变化，保留上次登记的指纹/)).toBeInTheDocument()
     expect(within(row).getByRole('combobox')).toHaveValue('output')
+  })
+})
+
+describe('全部文件目录视图与路径搜索', () => {
+  const ROOT_MD = makeFile('报告.md', 'MD', 'text')
+  const COVER = makeFile('images/封面.png', 'PNG', 'image')
+  const FIGURE = makeFile('images/figures/架构.svg', 'SVG', 'image')
+  const VIDEO = makeFile('media/演示视频.mp4', 'MP4', 'other')
+  const AUDIO = makeFile('media/背景音乐.mp3', 'MP3', 'other')
+  const DUP_A = makeFile('a/汇报.docx', 'DOCX', 'document')
+  const DUP_B = makeFile('b/汇报.docx', 'DOCX', 'document')
+  const LONG_PATH =
+    '参考资料/2026 年度总结/很长的中文文件名用于检查路径换行与搜索.docx'
+  const LONG = makeFile(LONG_PATH, 'DOCX', 'document')
+  const TREE_FILES = [
+    ROOT_MD,
+    COVER,
+    FIGURE,
+    VIDEO,
+    AUDIO,
+    FILE_A,
+    FILE_B,
+    DUP_A,
+    DUP_B,
+    LONG
+  ]
+
+  const REPORT_RECORD = {
+    id: 'file-report',
+    relativePath: FILE_A.relativePath,
+    role: 'output' as const,
+    sha256: 'a'.repeat(64)
+  }
+  const COVER_RECORD = {
+    id: 'file-cover',
+    relativePath: COVER.relativePath,
+    role: 'reference' as const,
+    sha256: 'b'.repeat(64)
+  }
+
+  function makeFile(
+    relativePath: string,
+    type: string,
+    category: ProjectFileEntry['category']
+  ): ProjectFileEntry {
+    return {
+      relativePath,
+      type,
+      category,
+      sizeBytes: 1,
+      modifiedAt: '2026-10-20T06:00:00.000Z',
+      classification: 'unclassified'
+    }
+  }
+
+  function loadedTreeMetadata() {
+    return ok({
+      status: 'loaded' as const,
+      summary: { ...SUMMARY, revision: 3, fileCount: 2 },
+      files: [REPORT_RECORD, COVER_RECORD]
+    })
+  }
+
+  async function openTree(
+    options: { files?: ProjectFileEntry[]; metadata?: unknown; classify?: unknown } = {}
+  ): Promise<ReturnType<typeof userEvent.setup>> {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const scanProject =
+      vi.fn().mockResolvedValue(ok(makeScan(options.files ?? TREE_FILES)))
+    const getProjectMetadata = vi.fn().mockResolvedValue(options.metadata ?? loadedTreeMetadata())
+    installFolioMock({
+      chooseProject,
+      scanProject,
+      getProjectMetadata,
+      classifyProjectFile:
+        options.classify ??
+        vi.fn().mockResolvedValue(
+          ok({
+            file: { ...REPORT_RECORD, role: 'reference' },
+            revision: 4,
+            contentChanged: false
+          })
+        )
+    })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await screen.findByRole('button', { name: /images.*个文件/ })
+    return user
+  }
+
+  it('默认目录视图折叠子目录，展开后用途仍按文件显示并可保存', async () => {
+    let classifyCalls = 0
+    const classifyProjectFile = vi.fn().mockImplementation(() => {
+      classifyCalls += 1
+      return Promise.resolve(
+        ok({
+          file: { ...REPORT_RECORD, role: 'reference' },
+          revision: 4,
+          contentChanged: false
+        })
+      )
+    })
+    const user = await openTree({ classify: classifyProjectFile })
+
+    expect(screen.getByText('报告.md')).toBeInTheDocument()
+    expect(screen.getByText('notes.md')).toBeInTheDocument()
+    expect(screen.queryByText(FILE_A.relativePath)).not.toBeInTheDocument()
+    expect(screen.queryByText('/images')).not.toBeInTheDocument()
+
+    const imagesToggle = screen.getByRole('button', { name: /images.*个文件/ })
+    expect(imagesToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(imagesToggle).toHaveTextContent('2 个文件')
+
+    const reportToggle = screen.getByRole('button', { name: /报告.*个文件/ })
+    expect(reportToggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(reportToggle)
+    expect(reportToggle).toHaveAttribute('aria-expanded', 'true')
+
+    expect(screen.getByText(FILE_A.relativePath)).toBeInTheDocument()
+    const row = screen.getByText(FILE_A.relativePath).closest('tr')
+    if (!row) throw new Error('未找到文件行')
+    const select = within(row).getByRole('combobox', { name: `${FILE_A.relativePath} 的用途` })
+    expect(select).toHaveValue('output')
+    expect(classifyCalls).toBe(0)
+
+    await user.selectOptions(select, 'reference')
+
+    expect(classifyProjectFile).toHaveBeenCalledWith('project-test', {
+      relativePath: FILE_A.relativePath,
+      role: 'reference',
+      expectedRevision: 3
+    })
+    expect(await screen.findByText(/已保存“参考资料”（revision 4）/)).toBeInTheDocument()
+  })
+
+  it('平铺与目录切换不写分类，展开状态在切回后保留', async () => {
+    const classifyProjectFile = vi.fn()
+    const user = await openTree({ classify: classifyProjectFile })
+
+    await user.click(screen.getByRole('button', { name: /报告.*个文件/ }))
+    await user.click(screen.getByRole('button', { name: '平铺' }))
+
+    expect(screen.getByText(FIGURE.relativePath)).toBeInTheDocument()
+    expect(screen.getByText(LONG_PATH)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /images.*个文件/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '目录' }))
+
+    const reportToggle = screen.getByRole('button', { name: /报告.*个文件/ })
+    expect(reportToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(FILE_A.relativePath)).toBeInTheDocument()
+    expect(classifyProjectFile).not.toHaveBeenCalled()
+  })
+
+  it('搜索显示命中文件与祖先，清除后恢复原展开状态', async () => {
+    const classifyProjectFile = vi.fn()
+    const user = await openTree({ classify: classifyProjectFile })
+
+    const mediaToggle = screen.getByRole('button', { name: /media.*个文件/ })
+    await user.click(mediaToggle)
+    expect(screen.getByText(VIDEO.relativePath)).toBeInTheDocument()
+
+    const search = screen.getByRole('searchbox', { name: '按完整相对路径搜索' })
+    await user.type(search, 'figures/架构')
+
+    expect(screen.getByText('images')).toBeInTheDocument()
+    expect(screen.getByText('images/figures')).toBeInTheDocument()
+    expect(screen.getByText(FIGURE.relativePath)).toBeInTheDocument()
+    expect(screen.queryByText(COVER.relativePath)).not.toBeInTheDocument()
+    expect(screen.getByText(/匹配 1 个/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '清除搜索' }))
+
+    expect(search).toHaveValue('')
+    expect(screen.getByRole('button', { name: /images.*个文件/ })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.getByRole('button', { name: /media.*个文件/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByText(VIDEO.relativePath)).toBeInTheDocument()
+    expect(classifyProjectFile).not.toHaveBeenCalled()
+  })
+
+  it('搜索无匹配时显示空状态并可清除', async () => {
+    const user = await openTree()
+
+    const search = screen.getByRole('searchbox', { name: '按完整相对路径搜索' })
+    await user.type(search, '不存在的路径')
+
+    const heading = screen.getByRole('heading', { name: '没有匹配的文件' })
+    expect(heading).toBeInTheDocument()
+    expect(screen.getByText(/匹配 0 个/)).toBeInTheDocument()
+
+    await user.click(within(heading.closest('.panel') as HTMLElement).getByRole('button', { name: '清除搜索' }))
+    expect(screen.queryByRole('heading', { name: '没有匹配的文件' })).not.toBeInTheDocument()
+    expect(screen.getByText('报告.md')).toBeInTheDocument()
+  })
+
+  it('搜索同名文件时显示各自祖先，长中文路径可直接定位', async () => {
+    const user = await openTree()
+    const search = screen.getByRole('searchbox', { name: '按完整相对路径搜索' })
+
+    await user.type(search, '汇报.docx')
+    expect(screen.getByText('a')).toBeInTheDocument()
+    expect(screen.getByText('b')).toBeInTheDocument()
+    expect(screen.getByText('a/汇报.docx')).toBeInTheDocument()
+    expect(screen.getByText('b/汇报.docx')).toBeInTheDocument()
+    expect(screen.getByText(/匹配 2 个/)).toBeInTheDocument()
+
+    await user.clear(search)
+    await user.type(search, '很长的中文文件名')
+    expect(screen.getByRole('button', { name: /^参考资料，/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^参考资料\/2026 年度总结，/ })
+    ).toBeInTheDocument()
+    expect(screen.getByText(LONG_PATH)).toBeInTheDocument()
+  })
+
+  it('刷新保留仍存在目录的展开状态，并收起消失的目录', async () => {
+    const chooseProject = vi.fn().mockResolvedValue(ok({ canceled: false, project: PROJECT }))
+    const scanProject = vi
+      .fn()
+      .mockResolvedValueOnce(ok(makeScan(TREE_FILES)))
+      .mockResolvedValueOnce(ok(makeScan([...TREE_FILES, makeFile('images/新增.png', 'PNG', 'image')])))
+      .mockResolvedValueOnce(ok(makeScan([ROOT_MD, VIDEO, FILE_A])))
+    installFolioMock({
+      chooseProject,
+      scanProject,
+      getProjectMetadata: vi.fn().mockResolvedValue(loadedTreeMetadata())
+    })
+
+    const user = await openFilesPage()
+    await user.click(screen.getByRole('button', { name: '打开文件夹' }))
+    await screen.findByRole('button', { name: /images.*个文件/ })
+    await user.click(screen.getByRole('button', { name: /images.*个文件/ }))
+    expect(screen.getByText(COVER.relativePath)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '重新扫描' }))
+    expect(await screen.findByText('images/新增.png')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^images，/ })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByText(COVER.relativePath)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '重新扫描' }))
+    expect(await screen.findByText('报告.md')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^images，/ })).not.toBeInTheDocument()
+  })
+
+  it('键盘 Enter/Space 可切换目录，折叠后的文件行不进入文档', async () => {
+    const user = await openTree()
+    const reportToggle = screen.getByRole('button', { name: /报告.*个文件/ })
+
+    reportToggle.focus()
+    await user.keyboard('{Enter}')
+    expect(reportToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(FILE_A.relativePath)).toBeInTheDocument()
+
+    await user.keyboard(' ')
+    expect(reportToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(FILE_A.relativePath)).not.toBeInTheDocument()
   })
 })

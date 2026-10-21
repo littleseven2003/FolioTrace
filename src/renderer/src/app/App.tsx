@@ -121,6 +121,7 @@ export function App(): JSX.Element {
           <main className="workbench" aria-label="项目工作台">
             {view === 'files' ? (
               <FilesPage
+                key={local.project?.handle ?? 'no-project'}
                 local={local}
                 onChooseProject={() => void local.chooseProject()}
                 onRescan={() => void local.rescan()}
