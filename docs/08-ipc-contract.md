@@ -16,6 +16,7 @@ type FolioErrorCode =
   | 'UNSUPPORTED_SCHEMA'
   | 'PROJECT_LOCKED'
   | 'REVISION_CONFLICT'
+  | 'ROOT_IDENTITY_MISMATCH'
 
 type Result<T> =
   | { ok: true; value: T }
@@ -32,6 +33,7 @@ type Result<T> =
 - `UNSUPPORTED_SCHEMA`：schemaVersion 高于当前应用支持范围，只提示不覆盖。
 - `PROJECT_LOCKED`：同主机存在活动锁或锁无法安全回收。
 - `REVISION_CONFLICT`：写入时 expectedRevision 与当前 revision 不匹配，拒绝覆盖。
+- `ROOT_IDENTITY_MISMATCH`：根目录已被移走、替换为符号链接/其他目录，或祖先改变导致 realpath 与授权时不一致；拒绝操作且不触碰任何内容。
 
 尚未实现的错误码在对应方法落地时加入：SCHEMA_INVALID、HASH_MISMATCH、MISSING_FILE、EVENT_ID_CONFLICT。
 
@@ -85,4 +87,5 @@ type Result<T> =
 - 已有 `project.json` 用 Ajv 2020 + date-time format 校验后读取；保留原有 ID、分类与集合数据。损坏或不支持的高版本只返回错误，不覆盖重建。
 - 原子写入：同目录临时文件 write → fsync → rename，再同步目录；`.docwork/project.lock` 限制单写者；`writeProject` 使用 expectedRevision，冲突返回 `REVISION_CONFLICT`。
 - 拒绝 `.docwork` 或 `project.json` 为符号链接；管理目录 realpath 必须等于预期路径。
+- 所有元数据读取、初始化与更新都使用授权时记录的根路径 + dev/ino；读取、mkdir、锁文件、临时文件与 rename 前复核，不一致返回 `ROOT_IDENTITY_MISMATCH`，拒绝时不在根外创建、修改或删除内容。
 - 重新选择同一文件夹可读取原项目；自动恢复最近项目、文件分类写回尚未实现。
