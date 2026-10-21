@@ -156,9 +156,9 @@ export function registerIpcHandlers({
       }
       const handleCheck = validateHandle(handle)
       if (!handleCheck.ok) return handleCheck
-      const rootCheck = resolveAuthorizedProject(handleCheck.value, projectRegistry)
-      if (!rootCheck.ok) return rootCheck
-      return scanAuthorizedProject(rootCheck.value.rootPath, projectRegistry)
+      // 扫描服务内部会 registry.resolve(handle)；这里必须传 handle，
+      // 不能传绝对路径，否则已授权项目也会被判为 PROJECT_NOT_FOUND。
+      return scanAuthorizedProject(handleCheck.value, projectRegistry)
     }
   )
 }
